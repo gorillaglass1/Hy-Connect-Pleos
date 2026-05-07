@@ -1,4 +1,4 @@
-package com.x.myapplication
+package com.hyconnect.pleos
 
 import org.junit.Test
 
