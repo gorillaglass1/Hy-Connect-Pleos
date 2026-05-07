@@ -48,13 +48,6 @@ fun AiRecommendationCard(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = recommendation.label,
-                color = HyBlue,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
                 text = recommendation.title,
                 color = HyTextPrimary,
                 fontSize = 24.sp,

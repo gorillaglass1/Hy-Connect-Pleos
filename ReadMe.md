@@ -53,27 +53,30 @@
 
 참고: `installDebug`는 에뮬레이터가 실행 중이고 기기가 정상 연결된 상태여야 합니다.
 
+### 더미 데이터 전환
+- `debug` 빌드는 `BuildConfig.USE_DUMMY_DATA = true`로 동작하며, 서버나 Pleos SDK 승인 없이 화면을 확인할 수 있습니다.
+- `release` 빌드는 `BuildConfig.USE_DUMMY_DATA = false`로 동작하며, `ApiClient`의 실제 API를 사용합니다.
+- 더미 데이터를 완전히 제거할 때는 `app/build.gradle.kts`의 `USE_DUMMY_DATA` 필드와 `DummyHyConnectRepository`, `DummyHyConnectData`를 삭제하면 됩니다.
+
+### 내비게이션 연동
+- 현재 `경로 안내` 버튼은 충전소 좌표가 있을 때 Android `geo:` 인텐트로 연결 가능한 내비게이션 앱을 실행합니다.
+- Pleos 문서 기준 NaviHelper는 별도 앱 등록 흐름은 보이지 않지만, `ai.pleos.playground:NaviHelper:2.0.3` 의존성과 `pleos.car.permission.NAVI_ROUTE`, `pleos.car.permission.NAVI_ROUTE_SEARCH` 권한이 필요합니다.
+- NaviHelper 승인/의존성 사용이 가능해지면 `NavigationClient` 구현체만 SDK 기반 구현으로 교체하면 UI와 ViewModel은 그대로 유지됩니다.
+
 ## 5) 현재 MainActivity 코드 설명
 
-파일: `app/src/main/java/com/x/myapplication/MainActivity.kt`
+파일: `app/src/main/java/com/hyconnect/pleos/MainActivity.kt`
 
 ### 동작 요약
-- `MainActivity`는 `Activity`를 상속합니다.
-- `onCreate`에서 화면 전체 UI를 코드로 구성합니다.
-- 세로(`VERTICAL`) 정렬의 `LinearLayout`을 만들고 중앙 정렬(`Gravity.CENTER`) 및 패딩을 적용합니다.
-- 다음 뷰를 순서대로 생성/추가합니다.
-  1. 제목 `TextView`: `"하이커넥트"`, 글자 크기 `32f`
-  2. 부제목 `TextView`: `"가까운 수소충전소를 추천합니다"`, 글자 크기 `18f`
-  3. `Button`: `"충전소 찾기"`
-- 마지막에 `setContentView(layout)`으로 화면에 표시합니다.
+- `MainActivity`는 `ComponentActivity`를 상속합니다.
+- `HyConnectViewModel`의 `uiState`를 수집해 Compose 기반 `HyConnectScreen`에 전달합니다.
+- `경로 안내` 버튼은 `NavigationClient`를 통해 Android 내비게이션 인텐트로 연결합니다.
+- 음성 호출, 설정, 더보기는 아직 프로토타입 Toast로 동작합니다.
 
 ### 현재 상태
-- 버튼 클릭 이벤트는 아직 연결되지 않았습니다.
-- 즉, 현재 화면은 "정적 UI 표시" 단계입니다.
+- `debug` 빌드에서는 더미 차량 상태, AI 추천, 충전소 목록으로 앱을 바로 실행할 수 있습니다.
+- 실제 서버 연동은 `release` 빌드의 `HyConnectRepositoryImpl` 경로를 사용합니다.
 
 ## 6) 팀 작업 시 참고사항
-- UI를 빠르게 실험할 때는 현재처럼 코드 기반 레이아웃이 편리합니다.
-- 기능 확장 시에는 아래 중 한 가지로 정리 권장:
-  - XML 레이아웃 + ViewBinding
-  - Jetpack Compose
-- 패키지/네임스페이스 정보가 파일 간 다를 수 있으니(예: `MainActivity` 패키지와 Gradle namespace) 리팩터링 시 일관성 확인이 필요합니다.
+- UI는 Jetpack Compose 기준으로 확장합니다.
+- SDK 승인 후에도 `NavigationClient`, `HyConnectRepository` 인터페이스 경계는 유지하고 구현체만 교체하는 방식이 가장 단순합니다.

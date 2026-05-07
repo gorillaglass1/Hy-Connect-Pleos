@@ -9,11 +9,18 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hyconnect.pleos.data.model.HydrogenStation
+import com.hyconnect.pleos.navigation.AndroidGeoNavigationClient
+import com.hyconnect.pleos.navigation.NavigationClient
+import com.hyconnect.pleos.navigation.NavigationResult
 import com.hyconnect.pleos.ui.HyConnectScreen
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.viewmodel.HyConnectViewModel
 
 class MainActivity : ComponentActivity() {
+    private val navigationClient: NavigationClient by lazy {
+        AndroidGeoNavigationClient(this)
+    }
+
     private val viewModel: HyConnectViewModel by viewModels {
         HyConnectViewModel.Factory((application as HyConnectApplication).repository)
     }
@@ -54,8 +61,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startRouteGuidance(station: HydrogenStation) {
-        // TODO: 경로 안내 버튼을 NaviHelper SDK와 연결한다.
-        showPrototypeAction("경로 안내 시작: ${station.name}")
+        when (val result = navigationClient.startRouteGuidance(station)) {
+            is NavigationResult.Started -> showPrototypeAction("경로 안내 시작: ${result.stationName}")
+            is NavigationResult.Failed -> {
+                result.cause?.let { Log.w("HyConnect", result.message, it) }
+                showPrototypeAction(result.message)
+            }
+        }
     }
 
     private fun showPrototypeAction(message: String) {
