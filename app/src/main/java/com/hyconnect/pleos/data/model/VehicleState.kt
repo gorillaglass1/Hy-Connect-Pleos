@@ -3,7 +3,7 @@ package com.hyconnect.pleos.data.model
 import com.google.gson.annotations.SerializedName
 
 data class VehicleState(
-    // TODO: 서버 /vehicle/state 응답 스키마가 확정되면 필드명과 타입을 실제 문서에 맞춘다.
+    // 서버 차량 등록 정보와 SDK/실시간 상태를 합친 Compose UI 표시용 모델이다.
     @SerializedName("hydrogen_percent")
     val hydrogenPercent: Int = 0,
     @SerializedName("vehicle_range_km")

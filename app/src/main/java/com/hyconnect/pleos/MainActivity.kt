@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
                 HyConnectScreen(
                     uiState = uiState,
                     onVoiceCallClick = {
-                        // TODO: 음성 호출 버튼을 Gleo AI SDK 또는 SpeechToText SDK와 연결한다.
+                        // TODO: 추후 Gleo AI SDK SpeechToText로 교체.
                         showPrototypeAction("음성 호출은 프로토타입 Toast로 동작합니다.")
                     },
                     onSettingsClick = {
@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startRouteGuidance(station: HydrogenStation) {
+        // TODO: 추후 Pleos NaviHelper SDK로 교체.
         when (val result = navigationClient.startRouteGuidance(station)) {
             is NavigationResult.Started -> showPrototypeAction("경로 안내 시작: ${result.stationName}")
             is NavigationResult.Failed -> {

@@ -1,5 +1,6 @@
 package com.hyconnect.pleos.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -35,6 +36,7 @@ class HyConnectViewModel(
 
     fun refresh() {
         viewModelScope.launch {
+            Log.d("HyConnect", "refresh started")
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
             val vehicleStateRequest = async { repository.getVehicleState() }
@@ -50,6 +52,12 @@ class HyConnectViewModel(
                 recommendationResult.errorOrNull(),
                 stationsResult.errorOrNull(),
             ).firstOrNull()
+            Log.d(
+                "HyConnect",
+                "refresh completed vehicle=${vehicleStateResult is NetworkResult.Success} " +
+                    "recommendation=${recommendationResult is NetworkResult.Success} " +
+                    "stations=${stationsResult is NetworkResult.Success} error=$errorMessage",
+            )
 
             _uiState.update { current ->
                 current.copy(

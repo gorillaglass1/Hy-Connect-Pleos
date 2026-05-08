@@ -43,6 +43,8 @@ fun HydrogenTankCard(
     vehicleState: VehicleState,
     modifier: Modifier = Modifier,
 ) {
+    val tankColors = hydrogenLevelColors(vehicleState.hydrogenPercent)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -62,7 +64,7 @@ fun HydrogenTankCard(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "${vehicleState.hydrogenPercent}%",
-                color = HyBlue,
+                color = tankColors.primary,
                 fontSize = 52.sp,
                 fontWeight = FontWeight.ExtraBold,
                 lineHeight = 56.sp,
@@ -86,6 +88,7 @@ fun HydrogenTankCard(
 
         HydrogenTankVisual(
             percent = vehicleState.hydrogenPercent,
+            colors = tankColors,
             modifier = Modifier
                 .width(260.dp)
                 .height(104.dp),
@@ -96,11 +99,12 @@ fun HydrogenTankCard(
 @Composable
 private fun HydrogenTankVisual(
     percent: Int,
+    colors: HydrogenLevelColors,
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
-            .background(HyBlueSoft, RoundedCornerShape(28.dp))
+            .background(colors.container, RoundedCornerShape(28.dp))
             .padding(horizontal = 18.dp, vertical = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -128,7 +132,7 @@ private fun HydrogenTankVisual(
             clipRect(left = 0f, top = 0f, right = fillWidth, bottom = tankHeight) {
                 drawRoundRect(
                     brush = Brush.horizontalGradient(
-                        listOf(Color(0xFF53B7FF), HyBlue, Color(0xFF0F5FD7))
+                        colors.gradient,
                     ),
                     topLeft = Offset.Zero,
                     size = Size(tankWidth, tankHeight),
@@ -162,6 +166,31 @@ private fun HydrogenTankVisual(
         }
     }
 }
+
+private data class HydrogenLevelColors(
+    val primary: Color,
+    val container: Color,
+    val gradient: List<Color>,
+)
+
+private fun hydrogenLevelColors(percent: Int): HydrogenLevelColors =
+    when {
+        percent < 25 -> HydrogenLevelColors(
+            primary = Color(0xFFE03131),
+            container = Color(0xFFFFECEC),
+            gradient = listOf(Color(0xFFFF8787), Color(0xFFE03131), Color(0xFFC92A2A)),
+        )
+        percent < 50 -> HydrogenLevelColors(
+            primary = Color(0xFFF08C00),
+            container = Color(0xFFFFF3D6),
+            gradient = listOf(Color(0xFFFFC078), Color(0xFFF08C00), Color(0xFFE67700)),
+        )
+        else -> HydrogenLevelColors(
+            primary = HyBlue,
+            container = HyBlueSoft,
+            gradient = listOf(Color(0xFF53B7FF), HyBlue, Color(0xFF0F5FD7)),
+        )
+    }
 
 @Preview(showBackground = true, widthDp = 720)
 @Composable

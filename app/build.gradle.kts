@@ -1,7 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
+
+val hyConnectBaseUrl: String =
+    localProperties.getProperty("HYCONNECT_BASE_URL") ?: "https://example.invalid/"
 
 android {
     namespace = "com.hyconnect.pleos"
@@ -14,13 +26,16 @@ android {
         versionCode = 1
         versionName = "1.0"
         buildConfigField("boolean", "USE_DUMMY_DATA", "false")
+        // 실제 배포 서버 주소는 Git에 커밋하지 않는 local.properties의 HYCONNECT_BASE_URL에서 읽는다.
+        // Retrofit baseUrl은 반드시 /로 끝나야 한다.
+        buildConfigField("String", "HYCONNECT_BASE_URL", "\"$hyConnectBaseUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         debug {
-            buildConfigField("boolean", "USE_DUMMY_DATA", "true")
+            buildConfigField("boolean", "USE_DUMMY_DATA", "false")
         }
         release {
             isMinifyEnabled = false
@@ -54,8 +69,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
+    testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.core)

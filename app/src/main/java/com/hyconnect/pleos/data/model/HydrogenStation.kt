@@ -3,7 +3,7 @@ package com.hyconnect.pleos.data.model
 import com.google.gson.annotations.SerializedName
 
 data class HydrogenStation(
-    // TODO: 서버 /stations/recommended 응답 스키마가 확정되면 필드명과 타입을 실제 문서에 맞춘다.
+    // 서버 DTO는 data.network에 두고, 이 모델은 Compose UI 표시용으로 유지한다.
     @SerializedName("id")
     val id: String,
     @SerializedName("name")
