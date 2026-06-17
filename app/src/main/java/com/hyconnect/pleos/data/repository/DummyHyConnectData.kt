@@ -6,9 +6,9 @@ import com.hyconnect.pleos.data.model.VehicleState
 
 object DummyHyConnectData {
     val vehicleState = VehicleState(
-        hydrogenPercent = 62,
-        vehicleRangeKm = 384,
-        message = "현재 경로 기준 충전 없이 약 2시간 40분 주행할 수 있습니다.",
+        hydrogenPercent = 80,
+        vehicleRangeKm = 500,
+        message = "현재 경로 기준 충전 없이 약 3시간 40분 주행할 수 있습니다.",
     )
 
     val aiRecommendation = AiRecommendation(

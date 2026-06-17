@@ -35,7 +35,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("boolean", "USE_DUMMY_DATA", "false")
+            buildConfigField("boolean", "USE_DUMMY_DATA", "true")
         }
         release {
             isMinifyEnabled = false
