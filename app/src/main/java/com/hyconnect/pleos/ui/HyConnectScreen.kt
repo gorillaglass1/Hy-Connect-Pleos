@@ -18,19 +18,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyconnect.pleos.data.model.AiRecommendation
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.VehicleState
-import com.hyconnect.pleos.ui.components.AiRecommendationCard
+import com.hyconnect.pleos.ui.components.DashboardPlaceholder
 import com.hyconnect.pleos.ui.components.HydrogenTankCard
+import com.hyconnect.pleos.ui.components.LowFuelBanner
+import com.hyconnect.pleos.ui.components.NlQueryBar
 import com.hyconnect.pleos.ui.components.StationListCard
 import com.hyconnect.pleos.ui.components.VoiceCallButton
+import com.hyconnect.pleos.ui.components.WaypointConfirmDialog
 import com.hyconnect.pleos.ui.theme.HyBackground
 import com.hyconnect.pleos.ui.theme.HyBlue
 import com.hyconnect.pleos.ui.theme.HyBorder
@@ -38,6 +44,7 @@ import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.ui.theme.HySurface
 import com.hyconnect.pleos.ui.theme.HyTextPrimary
 import com.hyconnect.pleos.ui.theme.HyTextSecondary
+import com.hyconnect.pleos.viewmodel.FuelMode
 import com.hyconnect.pleos.viewmodel.HyConnectUiState
 
 @Composable
@@ -45,11 +52,16 @@ fun HyConnectScreen(
     uiState: HyConnectUiState,
     onVoiceCallClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onRouteClick: (HydrogenStation) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    onAddWaypoint: (HydrogenStation) -> Unit,
     onMoreStationsClick: () -> Unit,
     onRefreshClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 경유지로 추가하기 전 확인 팝업 대상. null이면 팝업을 숨긴다.
+    var pendingStation by remember { mutableStateOf<HydrogenStation?>(null) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -73,19 +85,69 @@ fun HyConnectScreen(
             Spacer(modifier = Modifier.height(16.dp))
             HydrogenTankCard(vehicleState = uiState.vehicleState)
             Spacer(modifier = Modifier.height(14.dp))
-            AiRecommendationCard(recommendation = uiState.aiRecommendation)
-            Spacer(modifier = Modifier.height(14.dp))
-            StationListCard(
-                stations = uiState.stations,
-                isLoading = uiState.isLoading,
-                errorMessage = uiState.errorMessage,
-                onRouteClick = onRouteClick,
-                onMoreClick = onMoreStationsClick,
-                onRefreshClick = onRefreshClick,
-                modifier = Modifier.weight(1f),
-            )
+
+            when (uiState.fuelMode) {
+                FuelMode.LOW -> LowFuelContent(
+                    uiState = uiState,
+                    onQueryChange = onQueryChange,
+                    onSearch = onSearch,
+                    onVoiceClick = onVoiceCallClick,
+                    onStationSelect = { pendingStation = it },
+                    onMoreStationsClick = onMoreStationsClick,
+                    onRefreshClick = onRefreshClick,
+                )
+
+                FuelMode.SUFFICIENT -> DashboardPlaceholder(
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
+
+    pendingStation?.let { station ->
+        WaypointConfirmDialog(
+            station = station,
+            onConfirm = {
+                onAddWaypoint(station)
+                pendingStation = null
+            },
+            onDismiss = { pendingStation = null },
+        )
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.LowFuelContent(
+    uiState: HyConnectUiState,
+    onQueryChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    onVoiceClick: () -> Unit,
+    onStationSelect: (HydrogenStation) -> Unit,
+    onMoreStationsClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+) {
+    LowFuelBanner(
+        rangeKm = uiState.vehicleState.vehicleRangeKm,
+        driverMessage = uiState.driverMessage,
+    )
+    Spacer(modifier = Modifier.height(14.dp))
+    NlQueryBar(
+        query = uiState.nlQuery,
+        onQueryChange = onQueryChange,
+        onSearch = onSearch,
+        onVoiceClick = onVoiceClick,
+    )
+    Spacer(modifier = Modifier.height(14.dp))
+    StationListCard(
+        stations = uiState.stations,
+        isLoading = uiState.isLoading,
+        errorMessage = uiState.errorMessage,
+        onRouteClick = onStationSelect,
+        onMoreClick = onMoreStationsClick,
+        onRefreshClick = onRefreshClick,
+        actionLabel = "경로 선택",
+        modifier = Modifier.weight(1f),
+    )
 }
 
 @Composable
@@ -142,7 +204,35 @@ private fun Header(
 
 @Preview(showBackground = true, widthDp = 1180, heightDp = 840)
 @Composable
-private fun HyConnectScreenPreview() {
+private fun HyConnectScreenLowPreview() {
+    HyConnectTheme {
+        HyConnectScreen(
+            uiState = HyConnectUiState(
+                vehicleState = VehicleState(
+                    hydrogenPercent = 18,
+                    vehicleRangeKm = 92,
+                    message = "충전이 필요합니다.",
+                ),
+                fuelMode = FuelMode.LOW,
+                stations = previewStations,
+                nlQuery = "제일 가까운 충전소 추천해줘",
+                driverMessage = "경로에서 가장 가까운 충전소를 골라봤어요.",
+                isLoading = false,
+            ),
+            onVoiceCallClick = {},
+            onSettingsClick = {},
+            onQueryChange = {},
+            onSearch = {},
+            onAddWaypoint = {},
+            onMoreStationsClick = {},
+            onRefreshClick = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 1180, heightDp = 840)
+@Composable
+private fun HyConnectScreenSufficientPreview() {
     HyConnectTheme {
         HyConnectScreen(
             uiState = HyConnectUiState(
@@ -151,17 +241,14 @@ private fun HyConnectScreenPreview() {
                     vehicleRangeKm = 500,
                     message = "수소 충전량이 충분합니다.",
                 ),
-                aiRecommendation = AiRecommendation(
-                    title = "지금 충전하기 좋은 타이밍입니다.",
-                    dustSummary = "현재 미세먼지 21ug/m3, 외부 활동 부담이 낮습니다.",
-                    routeSummary = "현 경로 기준 대기 시간이 가장 짧은 충전소가 있습니다.",
-                ),
-                stations = previewStations,
+                fuelMode = FuelMode.SUFFICIENT,
                 isLoading = false,
             ),
             onVoiceCallClick = {},
             onSettingsClick = {},
-            onRouteClick = {},
+            onQueryChange = {},
+            onSearch = {},
+            onAddWaypoint = {},
             onMoreStationsClick = {},
             onRefreshClick = {},
         )
@@ -178,6 +265,8 @@ private val previewStations = listOf(
         distanceKm = 2.1,
         waitMinutes = 5,
         isRecommended = true,
+        latitude = 37.468164,
+        longitude = 127.038703,
     ),
     HydrogenStation(
         id = "gaia",
@@ -187,5 +276,7 @@ private val previewStations = listOf(
         pressureInfo = "700bar 사용 가능",
         distanceKm = 4.5,
         waitMinutes = 10,
+        latitude = 37.412,
+        longitude = 127.131,
     ),
 )

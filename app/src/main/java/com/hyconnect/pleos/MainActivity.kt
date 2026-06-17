@@ -48,8 +48,10 @@ class MainActivity : ComponentActivity() {
                     onSettingsClick = {
                         showPrototypeAction("설정 화면은 프로토타입 범위에서 제외되었습니다.")
                     },
-                    onRouteClick = { station ->
-                        startRouteGuidance(station)
+                    onQueryChange = viewModel::updateNlQuery,
+                    onSearch = viewModel::searchStations,
+                    onAddWaypoint = { station ->
+                        addWaypoint(station)
                     },
                     onMoreStationsClick = {
                         showPrototypeAction("추천 충전소 더보기는 다음 단계에서 연결합니다.")
@@ -60,9 +62,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startRouteGuidance(station: HydrogenStation) {
-        // TODO: 추후 Pleos NaviHelper SDK로 교체.
-        when (val result = navigationClient.startRouteGuidance(station)) {
+    private fun addWaypoint(station: HydrogenStation) {
+        // 확인 팝업에서 '경유지 추가'를 누른 뒤 호출된다.
+        // TODO: 추후 Pleos NaviHelper SDK addWaypoint(경위도)로 교체.
+        when (val result = navigationClient.addWaypoint(station)) {
+            is NavigationResult.WaypointAdded -> showPrototypeAction("경유지 추가: ${result.stationName}")
             is NavigationResult.Started -> showPrototypeAction("경로 안내 시작: ${result.stationName}")
             is NavigationResult.Failed -> {
                 result.cause?.let { Log.w("HyConnect", result.message, it) }

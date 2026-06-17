@@ -5,10 +5,13 @@ import com.google.gson.JsonParseException
 import com.hyconnect.pleos.data.mapper.mergeWithRealtimeAndChargers
 import com.hyconnect.pleos.data.mapper.toAiRecommendation
 import com.hyconnect.pleos.data.mapper.toRecommendedStations
+import com.hyconnect.pleos.data.mapper.toStationRecommendation
 import com.hyconnect.pleos.data.mapper.toVehicleState
 import com.hyconnect.pleos.data.model.AiRecommendation
 import com.hyconnect.pleos.data.model.HydrogenStation
+import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
+import com.hyconnect.pleos.data.network.NlStationRecommendationRequestDto
 import com.hyconnect.pleos.data.network.ChargingLogRequestDto
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
 import com.hyconnect.pleos.data.network.HydrogenChargerDto
@@ -41,6 +44,17 @@ interface HyConnectRepository {
     suspend fun getVehicleState(): NetworkResult<VehicleState>
     suspend fun getAiRecommendation(): NetworkResult<AiRecommendation>
     suspend fun getRecommendedStations(): NetworkResult<List<HydrogenStation>>
+
+    /**
+     * 주행가능거리가 임계값 이하일 때 자연어 질의로 충전소 추천을 받는다.
+     * 현재 위치/목적지 좌표는 Repository가 보유한 위치/내비 정보로 채운다.
+     */
+    suspend fun getNlRecommendedStations(
+        nlQuery: String,
+        remainingRange: Int,
+        userId: Int = DEFAULT_USER_ID,
+    ): NetworkResult<StationRecommendation>
+
     suspend fun createReservation(
         stationId: Int,
         chargerId: Int,
@@ -70,8 +84,12 @@ class HyConnectRepositoryImpl(
     private val vehicleId: Int = HyConnectRepository.DEFAULT_VEHICLE_ID,
 ) : HyConnectRepository {
     // TODO: 추후 Pleos Fused Location SDK 또는 Android Location API로 교체.
-    private val currentLat: Double? = 37.5665
-    private val currentLng: Double? = 126.9780
+    private val currentLat: Double? = 37.934258
+    private val currentLng: Double? = 127.723832
+
+    // TODO: 추후 Pleos NaviHelper SDK getDestinationInfo()로 실제 목적지 좌표를 채운다.
+    private val destinationLat: Double = 37.800006
+    private val destinationLng: Double = 127.778294
 
     override suspend fun getVehicleState(): NetworkResult<VehicleState> = safeApiCall {
         val vehicle = loadVehicleOrNull()
@@ -102,6 +120,30 @@ class HyConnectRepositoryImpl(
                     station.toFallbackHydrogenStation(isRecommended = index == 0)
                 }
             }
+        }
+    }
+
+    override suspend fun getNlRecommendedStations(
+        nlQuery: String,
+        remainingRange: Int,
+        userId: Int,
+    ): NetworkResult<StationRecommendation> = safeApiCall {
+        runCatching {
+            service.getNlStationRecommendations(
+                NlStationRecommendationRequestDto(
+                    userId = userId,
+                    currentLatitude = currentLat ?: 0.0,
+                    currentLongitude = currentLng ?: 0.0,
+                    destinationLatitude = destinationLat,
+                    destinationLongitude = destinationLng,
+                    remainingRange = remainingRange,
+                    nlQuery = nlQuery,
+                ),
+            ).toStationRecommendation()
+        }.getOrElse {
+            Log.w("HyConnect", "nl recommendation failed, fallback to demo", it)
+            // 추천 서버가 꺼져 있어도 Pleos 에뮬레이터 화면 검증이 가능하도록 데모 추천을 제공한다.
+            demoNlStationRecommendation(remainingRange)
         }
     }
 
@@ -292,6 +334,47 @@ class HyConnectRepositoryImpl(
             }
         }
 }
+
+private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendation =
+    StationRecommendation(
+        driverMessage = "주행가능거리 ${remainingRange}km 남았어요. 경로에서 가장 가까운 충전소를 골라봤어요.",
+        stations = listOf(
+            HydrogenStation(
+                id = "demo-nl-1",
+                name = "현대 수소충전소 양재",
+                address = "서울 서초구 바우뫼로 12길 73",
+                status = "운영 중",
+                pressureInfo = "700bar 사용 가능",
+                distanceKm = 3.2,
+                waitMinutes = 5,
+                isRecommended = true,
+                latitude = 37.468164,
+                longitude = 127.038703,
+            ),
+            HydrogenStation(
+                id = "demo-nl-2",
+                name = "H 강동 수소스테이션",
+                address = "서울 강동구 천호대로 1452",
+                status = "운영 중",
+                pressureInfo = "350bar / 700bar",
+                distanceKm = 8.7,
+                waitMinutes = 12,
+                latitude = 37.545762,
+                longitude = 127.170278,
+            ),
+            HydrogenStation(
+                id = "demo-nl-3",
+                name = "남양주 수소충전소",
+                address = "경기 남양주시 경춘로 100",
+                status = "운영 중",
+                pressureInfo = "700bar",
+                distanceKm = 15.4,
+                waitMinutes = 9,
+                latitude = 37.635120,
+                longitude = 127.216540,
+            ),
+        ),
+    )
 
 private fun demoOptimizedCandidateStations(): List<OptimizedCandidateStationDto> =
     listOf(

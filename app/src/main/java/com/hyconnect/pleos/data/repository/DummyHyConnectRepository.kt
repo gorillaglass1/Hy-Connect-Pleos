@@ -2,6 +2,7 @@ package com.hyconnect.pleos.data.repository
 
 import com.hyconnect.pleos.data.model.AiRecommendation
 import com.hyconnect.pleos.data.model.HydrogenStation
+import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
 import com.hyconnect.pleos.data.network.NetworkResult
@@ -19,6 +20,18 @@ class DummyHyConnectRepository : HyConnectRepository {
 
     override suspend fun getRecommendedStations(): NetworkResult<List<HydrogenStation>> =
         dummyResult { DummyHyConnectData.recommendedStations }
+
+    override suspend fun getNlRecommendedStations(
+        nlQuery: String,
+        remainingRange: Int,
+        userId: Int,
+    ): NetworkResult<StationRecommendation> =
+        dummyResult {
+            StationRecommendation(
+                driverMessage = "주행가능거리 ${remainingRange}km 남았어요. \"$nlQuery\" 기준으로 추천했어요.",
+                stations = DummyHyConnectData.recommendedStations,
+            )
+        }
 
     override suspend fun createReservation(
         stationId: Int,

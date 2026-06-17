@@ -42,6 +42,7 @@ fun StationListCard(
     onMoreClick: () -> Unit,
     onRefreshClick: () -> Unit,
     modifier: Modifier = Modifier,
+    actionLabel: String = "경로 선택",
 ) {
     Column(
         modifier = modifier
@@ -89,6 +90,7 @@ fun StationListCard(
                 else -> StationList(
                     stations = stations,
                     onRouteClick = onRouteClick,
+                    actionLabel = actionLabel,
                 )
             }
         }
@@ -112,6 +114,7 @@ fun StationListCard(
 private fun StationList(
     stations: List<HydrogenStation>,
     onRouteClick: (HydrogenStation) -> Unit,
+    actionLabel: String,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         itemsIndexed(
@@ -121,6 +124,7 @@ private fun StationList(
             StationRow(
                 station = station,
                 onRouteClick = onRouteClick,
+                actionLabel = actionLabel,
             )
             if (index != stations.lastIndex) {
                 HorizontalDivider(color = HyBorder)

@@ -40,6 +40,7 @@ fun StationRow(
     station: HydrogenStation,
     onRouteClick: (HydrogenStation) -> Unit,
     modifier: Modifier = Modifier,
+    actionLabel: String = "경로 선택",
 ) {
     Row(
         modifier = modifier
@@ -124,7 +125,7 @@ fun StationRow(
             modifier = Modifier.defaultMinSize(minWidth = 112.dp, minHeight = 52.dp),
         ) {
             Text(
-                text = "경로 안내",
+                text = actionLabel,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
             )

@@ -97,4 +97,9 @@ interface HyConnectService {
     suspend fun getOptimizedStationRecommendations(
         @Body request: OptimizedStationRecommendationRequestDto,
     ): OptimizedStationRecommendationResponseDto
+
+    @POST("recommendations/nl-search")
+    suspend fun getNlStationRecommendations(
+        @Body request: NlStationRecommendationRequestDto,
+    ): NlStationRecommendationResponseDto
 }

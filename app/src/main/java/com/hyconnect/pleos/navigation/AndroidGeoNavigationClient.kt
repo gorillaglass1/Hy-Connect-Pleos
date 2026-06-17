@@ -7,10 +7,25 @@ import android.net.Uri
 import android.app.SearchManager
 import com.hyconnect.pleos.data.model.HydrogenStation
 
+/**
+ * NaviHelper SDK 승인 전까지 쓰는 폴백 구현.
+ * geo: 인텐트 또는 Pleos 지도 검색으로 충전소 위치를 띄운다.
+ * (geo: 인텐트는 실제 '경유지 추가'를 지원하지 않으므로, NaviHelper SDK가 붙으면
+ *  [PleosNaviHelperNavigationClient]가 addWaypoint(경위도)로 교체한다.)
+ */
 class AndroidGeoNavigationClient(
     private val context: Context,
 ) : NavigationClient {
-    override fun startRouteGuidance(station: HydrogenStation): NavigationResult {
+    override fun startRouteGuidance(station: HydrogenStation): NavigationResult =
+        launchForStation(station) { NavigationResult.Started(station.name) }
+
+    override fun addWaypoint(station: HydrogenStation): NavigationResult =
+        launchForStation(station) { NavigationResult.WaypointAdded(station.name) }
+
+    private inline fun launchForStation(
+        station: HydrogenStation,
+        onSuccess: () -> NavigationResult,
+    ): NavigationResult {
         val latitude = station.latitude
         val longitude = station.longitude
 
@@ -26,17 +41,17 @@ class AndroidGeoNavigationClient(
 
         return try {
             context.startActivity(intent)
-            NavigationResult.Started(station.name)
+            onSuccess()
         } catch (exception: ActivityNotFoundException) {
-            startPleosMapSearch(station, exception)
+            startPleosMapSearch(station, onSuccess)
         } catch (exception: SecurityException) {
             NavigationResult.Failed("내비게이션 실행 권한이 없습니다.", exception)
         }
     }
 
-    private fun startPleosMapSearch(
+    private inline fun startPleosMapSearch(
         station: HydrogenStation,
-        cause: Throwable,
+        onSuccess: () -> NavigationResult,
     ): NavigationResult {
         val searchIntent = Intent(Intent.ACTION_SEARCH).apply {
             setPackage(PLEOS_MAP_PACKAGE)
@@ -49,8 +64,7 @@ class AndroidGeoNavigationClient(
 
         return try {
             context.startActivity(searchIntent)
-            // TODO: Pleos NaviHelper SDK가 제공되면 검색 화면 대신 목적지 설정/경로 안내 API로 교체.
-            NavigationResult.Started(station.name)
+            onSuccess()
         } catch (exception: ActivityNotFoundException) {
             NavigationResult.Failed("연결 가능한 내비게이션 앱을 찾지 못했습니다.", exception)
         } catch (exception: SecurityException) {
