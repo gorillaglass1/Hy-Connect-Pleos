@@ -27,6 +27,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         navigationClient.initialize()
+        // Navi 앱이 비동기로 통지하는 경유지 추가 결과/오류를 사용자에게 보여준다.
+        navigationClient.onNaviEvent = { result ->
+            when (result) {
+                is NavigationResult.WaypointAdded -> showPrototypeAction("경유지가 추가되었습니다.")
+                is NavigationResult.Started -> showPrototypeAction("경로 안내를 시작합니다.")
+                is NavigationResult.Failed -> {
+                    result.cause?.let { Log.w("HyConnect", result.message, it) }
+                    showPrototypeAction(result.message)
+                }
+            }
+        }
 
         setContent {
             val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
@@ -70,10 +81,13 @@ class MainActivity : ComponentActivity() {
     private fun addWaypoint(station: HydrogenStation) {
         // 확인 팝업에서 '경유지 추가'를 누른 뒤 호출된다. 선호 학습도 함께 전송한다.
         viewModel.selectStationForRoute(station)
+        // addWaypoint는 비동기 전송이다. 여기서는 전송/검증 결과만 알리고,
+        // 최종 추가 성공 여부는 navigationClient.onNaviEvent 콜백에서 통지된다.
         when (val result = navigationClient.addWaypoint(station)) {
-            is NavigationResult.WaypointAdded -> showPrototypeAction("경유지 추가: ${result.stationName}")
-            is NavigationResult.Started -> showPrototypeAction("경로 안내 시작: ${result.stationName}")
+            is NavigationResult.WaypointAdded -> showPrototypeAction("${result.stationName} 경유지 추가를 요청했습니다.")
+            is NavigationResult.Started -> showPrototypeAction("${result.stationName}까지 경로 안내를 시작합니다.")
             is NavigationResult.Failed -> {
+                // 전송 전 검증 실패(좌표 오류 등). 잘못된 요청을 보내지 않고 즉시 사유를 안내한다.
                 result.cause?.let { Log.w("HyConnect", result.message, it) }
                 showPrototypeAction(result.message)
             }

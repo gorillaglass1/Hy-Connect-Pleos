@@ -20,7 +20,7 @@ object DummyHyConnectData {
 
     val recommendedStations = listOf(
         HydrogenStation(
-            id = "dummy-yangjae",
+            id = "1",
             name = "현대 수소충전소 양재",
             address = "서울 서초구 바우뫼로 12길 123",
             status = "운영 중",
@@ -32,7 +32,7 @@ object DummyHyConnectData {
             longitude = 127.038703,
         ),
         HydrogenStation(
-            id = "dummy-gangdong",
+            id = "2",
             name = "H 강동 수소스테이션",
             address = "서울 강동구 천호대로 1452",
             status = "운영 중",
@@ -43,7 +43,7 @@ object DummyHyConnectData {
             longitude = 127.170278,
         ),
         HydrogenStation(
-            id = "dummy-suwon",
+            id = "3",
             name = "수원 영통 수소충전소",
             address = "경기 수원시 영통구 광교호수로 250",
             status = "점검 예정",
