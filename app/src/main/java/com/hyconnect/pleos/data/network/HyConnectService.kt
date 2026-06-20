@@ -2,104 +2,44 @@ package com.hyconnect.pleos.data.network
 
 import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
+/**
+ * Hi-connect FastAPI 서버 계약과 1:1 대응하는 Retrofit 인터페이스.
+ * 모든 경로는 [BuildConfig.HYCONNECT_BASE_URL] 기준 상대 경로다.
+ */
 interface HyConnectService {
+    @POST("recommendations/personalized")
+    suspend fun getPersonalizedRecommendations(
+        @Body request: PersonalizedRecommendationRequestDto,
+    ): List<RecommendedStationResponseDto>
+
+    @POST("recommendations/personalized/delivery-payloads")
+    suspend fun getRecommendationDeliveryPayloads(
+        @Body request: PersonalizedRecommendationRequestDto,
+    ): List<RecommendationDeliveryPayloadDto>
+
+    @POST("users/{user_id}/preferences/learn")
+    suspend fun learnFromSelection(
+        @Path("user_id") userId: Int,
+        @Body request: PreferenceLearningRequestDto,
+    ): UserPreferenceResponseDto
+
+    @GET("users/{user_id}/preferences")
+    suspend fun getUserPreferences(@Path("user_id") userId: Int): UserPreferenceResponseDto
+
     @GET("hydrogen-stations")
     suspend fun getHydrogenStations(
-        @Query("hydrogen_station_id") hydrogenStationId: Int? = null,
-        @Query("name") name: String? = null,
-        @Query("address") address: String? = null,
-        @Query("payment_supported") paymentSupported: String? = null,
+        @Query("chrstn_mno") chrstnMno: String? = null,
+        @Query("chrstn_nm") chrstnNm: String? = null,
+        @Query("oper_yn") operYn: String? = null,
+        @Query("rltm_info_yn") rltmInfoYn: String? = null,
         @Query("limit") limit: Int = 100,
         @Query("offset") offset: Int = 0,
     ): List<HydrogenStationDto>
 
-    @GET("hydrogen-station-realtime")
-    suspend fun getHydrogenStationRealtime(
-        @Query("realtime_id") realtimeId: Int? = null,
-        @Query("hydrogen_station_id") hydrogenStationId: Int? = null,
-        @Query("station_status") stationStatus: String? = null,
-        @Query("limit") limit: Int = 100,
-        @Query("offset") offset: Int = 0,
-    ): List<HydrogenStationRealtimeDto>
-
-    @GET("hydrogen-chargers")
-    suspend fun getHydrogenChargers(
-        @Query("charger_id") chargerId: Int? = null,
-        @Query("hydrogen_charger_id") hydrogenChargerId: Int? = null,
-        @Query("station_id") stationId: Int? = null,
-        @Query("hydrogen_station_id") hydrogenStationId: Int? = null,
-        @Query("charger_status") chargerStatus: String? = null,
-        @Query("pressure_type") pressureType: String? = null,
-        @Query("limit") limit: Int = 100,
-        @Query("offset") offset: Int = 0,
-    ): List<HydrogenChargerDto>
-
-    @GET("recommendation-histories")
-    suspend fun getRecommendationHistories(
-        @Query("recommendation_id") recommendationId: Int? = null,
-        @Query("user_id") userId: Int? = null,
-        @Query("vehicle_id") vehicleId: Int? = null,
-        @Query("hydrogen_station_id") hydrogenStationId: Int? = null,
-        @Query("selected") selected: Boolean? = null,
-        @Query("recommendation_type") recommendationType: String? = null,
-        @Query("limit") limit: Int = 100,
-        @Query("offset") offset: Int = 0,
-    ): List<RecommendationHistoryDto>
-
-    @GET("vehicles")
-    suspend fun getVehicles(
-        @Query("user_id") userId: Int,
-        @Query("vehicle_id") vehicleId: Int? = null,
-        @Query("vehicle_number") vehicleNumber: String? = null,
-        @Query("limit") limit: Int = 100,
-        @Query("offset") offset: Int = 0,
-    ): List<VehicleDto>
-
-    @GET("vehicles/{vehicle_id}")
-    suspend fun getVehicle(
-        @Path("vehicle_id") vehicleId: Int,
-    ): VehicleDto
-
-    @POST("hydrogen-station-reservations")
-    suspend fun createReservation(
-        @Body request: ReservationRequestDto,
-    ): ReservationResponseDto
-
     @POST("charging-logs")
-    suspend fun createChargingLog(
-        @Body request: ChargingLogRequestDto,
-    ): ChargingLogResponseDto
-
-    @GET("user")
-    suspend fun getUser(
-        @Query("user_id") userId: Int? = null,
-        @Query("email") email: String? = null,
-        @Query("phone") phone: String? = null,
-    ): UserDto
-
-    @POST("user")
-    suspend fun createUser(
-        @Body request: UserRequestDto,
-    ): UserDto
-
-    @PATCH("user/update/{user_id}")
-    suspend fun updateUser(
-        @Path("user_id") userId: Int,
-        @Body request: UserRequestDto,
-    ): UserDto
-
-    @POST("recommendations/optimized-stations")
-    suspend fun getOptimizedStationRecommendations(
-        @Body request: OptimizedStationRecommendationRequestDto,
-    ): OptimizedStationRecommendationResponseDto
-
-    @POST("recommendations/nl-search")
-    suspend fun getNlStationRecommendations(
-        @Body request: NlStationRecommendationRequestDto,
-    ): NlStationRecommendationResponseDto
+    suspend fun createChargingLog(@Body request: ChargingLogRequestDto): List<ChargingLogResponseDto>
 }

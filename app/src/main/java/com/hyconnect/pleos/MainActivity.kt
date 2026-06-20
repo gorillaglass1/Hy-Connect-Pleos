@@ -64,6 +64,8 @@ class MainActivity : ComponentActivity() {
 
     private fun addWaypoint(station: HydrogenStation) {
         // 확인 팝업에서 '경유지 추가'를 누른 뒤 호출된다.
+        // 선택한 충전소(chrstn_mno)로 선호 가중치 학습을 서버에 전송한다.
+        viewModel.selectStationForRoute(station)
         // TODO: 추후 Pleos NaviHelper SDK addWaypoint(경위도)로 교체.
         when (val result = navigationClient.addWaypoint(station)) {
             is NavigationResult.WaypointAdded -> showPrototypeAction("경유지 추가: ${result.stationName}")

@@ -2,26 +2,25 @@ package com.hyconnect.pleos.data.network
 
 import com.google.gson.annotations.SerializedName
 
-// TODO: 시간/날짜 필드는 서버 포맷 확정 후 kotlinx-datetime 또는 java.time 변환으로 교체.
+/**
+ * 서버 `HydrogenStationResponse` 대응. 식별자는 문자열 [chrstnMno]다.
+ * 좌표 필드명은 서버 스키마 표기 그대로 경도 [lon], 위도 [let](= latitude)이며 가격은 [ntslPc](원/kg)다.
+ */
 data class HydrogenStationDto(
-    @SerializedName("hydrogen_station_id")
-    val hydrogenStationId: Int,
-    @SerializedName("name")
-    val name: String,
-    @SerializedName("address")
-    val address: String,
-    @SerializedName("latitude")
-    val latitude: Double,
-    @SerializedName("longitude")
-    val longitude: Double,
-    @SerializedName("contact_number")
-    val contactNumber: String?,
-    @SerializedName("start_time")
-    val startTime: String?,
-    @SerializedName("end_time")
-    val endTime: String?,
-    @SerializedName("total_chargers")
-    val totalChargers: Int,
-    @SerializedName("payment_supported")
-    val paymentSupported: String?,
+    @SerializedName("chrstn_mno")
+    val chrstnMno: String,
+    @SerializedName("chrstn_nm")
+    val chrstnNm: String,
+    @SerializedName("road_nm_addr")
+    val roadNmAddr: String?,
+    @SerializedName("lon")
+    val lon: Double?,
+    @SerializedName("let")
+    val let: Double?,
+    @SerializedName("ntsl_pc")
+    val ntslPc: Int?,
+    @SerializedName("oper_yn")
+    val operYn: String?,
+    @SerializedName("rltm_info_yn")
+    val rltmInfoYn: String?,
 )

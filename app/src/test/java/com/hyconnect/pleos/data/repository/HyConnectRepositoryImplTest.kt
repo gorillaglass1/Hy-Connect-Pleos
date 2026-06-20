@@ -37,24 +37,43 @@ class HyConnectRepositoryImplTest {
     }
 
     @Test
-    fun getRecommendedStationsUsesOptimizedRecommendationResponse() = runBlocking {
-        enqueueJson(vehicleJson)
-        enqueueJson(stationsJson)
-        enqueueJson(realtimeJson)
-        enqueueJson(chargersJson)
-        enqueueJson(optimizedRecommendationJson)
+    fun getNlRecommendedStationsMapsPersonalizedResponse() = runBlocking {
+        enqueueJson(personalizedJson)
 
-        val result = repository.getRecommendedStations()
+        val result = repository.getNlRecommendedStations(
+            nlQuery = "인천에 있고 대기 차량이 적은 충전소",
+            remainingRange = 45,
+        )
 
         assertTrue(result is NetworkResult.Success)
-        val stations = (result as NetworkResult.Success).data
-        assertEquals(1, stations.size)
-        assertEquals("데모 강동 수소스테이션", stations.first().name)
-        assertEquals("700bar 사용 가능", stations.first().pressureInfo)
-        assertEquals(5, stations.first().waitMinutes)
-        assertEquals(37.5301, stations.first().latitude ?: 0.0, 0.0)
-        assertEquals(127.1238, stations.first().longitude ?: 0.0, 0.0)
-        assertTrue(stations.first().isRecommended)
+        val recommendation = (result as NetworkResult.Success).data
+        assertEquals(1, recommendation.stations.size)
+        val station = recommendation.stations.first()
+        assertEquals("2820020121HS2019018", station.id)
+        assertEquals("H인천수소충전소 에코스테이션", station.name)
+        assertTrue(station.isRecommended)
+        assertEquals(37.39867905, station.latitude ?: 0.0, 0.0)
+        assertEquals(126.71148794, station.longitude ?: 0.0, 0.0)
+
+        val request = server.takeRequest()
+        assertEquals("/recommendations/personalized", request.path)
+        assertTrue(request.body.readUtf8().contains("nl_query"))
+    }
+
+    @Test
+    fun submitStationSelectionPostsChrstnMnoToLearnEndpoint() = runBlocking {
+        enqueueJson(preferenceJson)
+
+        val result = repository.submitStationSelection(chrstnMno = "2820020121HS2019018")
+
+        assertTrue(result is NetworkResult.Success)
+        val preference = (result as NetworkResult.Success).data
+        assertEquals(1, preference.userId)
+        assertEquals("0.97", preference.weightPrice)
+
+        val request = server.takeRequest()
+        assertEquals("/users/1/preferences/learn", request.path)
+        assertTrue(request.body.readUtf8().contains("2820020121HS2019018"))
     }
 
     private fun enqueueJson(body: String) {
@@ -67,117 +86,56 @@ class HyConnectRepositoryImplTest {
     }
 }
 
-private val vehicleJson = """
-{
-  "vehicle_id": 1,
-  "user_id": 1,
-  "vehicle_number": "12가3456",
-  "model": "NEXO",
-  "vehicle_type": "SUV",
-  "fuel_type": "hydrogen",
-  "tank_capacity": 6.33,
-  "avg_efficiency": 96.0,
-  "registered_at": "2026-05-08T00:00:00Z"
-}
-""".trimIndent()
-
-private val stationsJson = """
+private val personalizedJson = """
 [
   {
-    "hydrogen_station_id": 1,
-    "name": "서울 수소충전소",
-    "address": "서울 중구",
-    "latitude": 37.5665,
-    "longitude": 126.9780,
-    "contact_number": null,
-    "start_time": "09:00",
-    "end_time": "18:00",
-    "total_chargers": 2,
-    "payment_supported": "card"
-  }
-]
-""".trimIndent()
-
-private val realtimeJson = """
-[
-  {
-    "realtime_id": 10,
-    "hydrogen_station_id": 1,
-    "available_chargers": 1,
-    "in_use_chargers": 1,
-    "queue_count": 2,
-    "avg_wait_time": null,
-    "hydrogen_stock_kg": 120.0,
-    "station_status": "운영 중",
-    "last_restock_at": null,
-    "next_restock_schedule": null,
-    "utilization_rate": 0.5,
-    "updated_at": "2026-05-08T00:00:00Z"
-  }
-]
-""".trimIndent()
-
-private val chargersJson = """
-[
-  {
-    "hydrogen_charger_id": 100,
-    "hydrogen_station_id": 1,
-    "charger_status": "available",
-    "charger_type": "fast",
-    "hydrogen_pressure_bar": 700,
-    "pressure_type": "700bar",
-    "restock_schedule": null
-  }
-]
-""".trimIndent()
-
-private val optimizedRecommendationJson = """
-{
-  "recommendation_id": 1778221628174,
-  "recommended_station": {
-    "hydrogen_station_id": 901,
-    "name": "데모 강동 수소스테이션",
-    "address": "서울 강동구 데모로 12",
-    "latitude": 37.5301,
-    "longitude": 127.1238,
-    "selected_charger_id": 9001
-  },
-  "score": 90.7,
-  "reason": "현재 주행가능거리로 도달 가능하며 700bar 충전을 지원합니다.",
-  "decision_factors": {
-    "reachable": true,
-    "estimated_arrival_range_km": 82,
-    "detour_distance_km": 4.5,
-    "estimated_wait_time_min": 5,
-    "price_per_kg": 8800,
-    "supports_700bar": true,
-    "station_status": "OPEN"
-  },
-  "recommendations": [
-    {
-      "rank": 1,
-      "hydrogen_station_id": 901,
-      "name": "데모 강동 수소스테이션",
-      "address": "서울 강동구 데모로 12",
-      "latitude": 37.5301,
-      "longitude": 127.1238,
-      "selected_charger_id": 9001,
-      "score": 90.7,
-      "reason": "현재 주행가능거리로 도달 가능하며 700bar 충전을 지원합니다.",
-      "highlight": "대기 시간이 짧음",
-      "decision_factors": {
-        "reachable": true,
-        "estimated_arrival_range_km": 82,
-        "detour_distance_km": 4.5,
-        "estimated_wait_time_min": 5,
-        "price_per_kg": 8800,
-        "supports_700bar": true,
-        "station_status": "OPEN"
-      }
+    "chrstn_mno": "2820020121HS2019018",
+    "chrstn_nm": "H인천수소충전소 에코스테이션",
+    "road_nm_addr": "인천 남동구 청능대로468번길 1",
+    "vhcle_knd_cd": null,
+    "vhcle_knd_nm": null,
+    "ntsl_pc": 11000,
+    "distance_to_station": 175.82,
+    "distance_to_destination": 12.4,
+    "detour_distance": 0.36,
+    "wait_vehicles": 0,
+    "wait_time_minutes": 0,
+    "facilities": ["대기실", "세차장", "편의점", "화장실"],
+    "is_reachable": true,
+    "sub_scores": { "price": 70.0, "waiting_time": 100.0, "distance": 95.0, "facilities": 60.0 },
+    "final_score": 84.1,
+    "recommendation_reason": "사용자 가중치 분석 결과 전반적 매칭도가 매우 높습니다.",
+    "delivery_payload": {
+      "chrstn_mno": "2820020121HS2019018",
+      "chrstn_nm": "H인천수소충전소 에코스테이션",
+      "road_nm_addr": "인천 남동구 청능대로468번길 1",
+      "latitude": 37.39867905,
+      "longitude": 126.71148794,
+      "vhcle_knd_cd": null,
+      "vhcle_knd_nm": null,
+      "ntsl_pc": 11000,
+      "distance_to_station": 175.82,
+      "detour_distance": 0.36,
+      "wait_vehicles": 0,
+      "wait_time_minutes": 0,
+      "facilities": ["대기실", "세차장", "편의점", "화장실"],
+      "is_reachable": true,
+      "final_score": 84.1,
+      "recommendation_reason": "사용자 가중치 분석 결과 전반적 매칭도가 매우 높습니다."
     }
-  ],
-  "alternatives": [],
-  "message_for_driver": "약 14.2km 전방 데모 강동 수소스테이션을 추천합니다. 예상 대기 시간은 5분입니다.",
-  "created_at": "2026-05-08T06:27:08.174230Z"
+  }
+]
+""".trimIndent()
+
+private val preferenceJson = """
+{
+  "user_id": 1,
+  "weight_price": "0.97",
+  "weight_waiting_time": "1.05",
+  "weight_distance": "1.04",
+  "weight_facilities": "0.94",
+  "safety_margin": "1.10",
+  "created_at": "2026-05-08T00:00:00Z",
+  "updated_at": "2026-05-08T00:00:00Z"
 }
 """.trimIndent()

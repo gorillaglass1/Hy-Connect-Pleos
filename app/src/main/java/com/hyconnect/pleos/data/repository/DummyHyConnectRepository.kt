@@ -6,7 +6,7 @@ import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
 import com.hyconnect.pleos.data.network.NetworkResult
-import com.hyconnect.pleos.data.network.ReservationResponseDto
+import com.hyconnect.pleos.data.network.UserPreferenceResponseDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -33,30 +33,28 @@ class DummyHyConnectRepository : HyConnectRepository {
             )
         }
 
-    override suspend fun createReservation(
-        stationId: Int,
-        chargerId: Int,
+    override suspend fun submitStationSelection(
+        chrstnMno: String,
         userId: Int,
-    ): NetworkResult<ReservationResponseDto> =
+    ): NetworkResult<UserPreferenceResponseDto> =
         dummyResult {
-            ReservationResponseDto(
-                hydrogenStationReservationId = 1,
-                hydrogenChargerId = chargerId,
-                hydrogenStationId = stationId,
-                reservationStatus = "reserved",
+            UserPreferenceResponseDto(
                 userId = userId,
-                reservationTime = "2026-05-08T00:00:00Z",
-                expireTime = "2026-05-08T00:10:00Z",
+                weightPrice = "1.00",
+                weightWaitingTime = "1.00",
+                weightDistance = "1.00",
+                weightFacilities = "1.00",
+                safetyMargin = "1.10",
                 createdAt = "2026-05-08T00:00:00Z",
+                updatedAt = "2026-05-08T00:00:00Z",
             )
         }
 
     override suspend fun createChargingLog(
-        userId: Int,
-        stationId: Int,
-        vehicleId: Int,
+        chrstnMno: String,
         startTime: String,
         endTime: String,
+        userId: Int,
         chargedAmount: Double?,
         chargingCost: Double?,
         waitingTime: Int?,
@@ -65,8 +63,7 @@ class DummyHyConnectRepository : HyConnectRepository {
             ChargingLogResponseDto(
                 chargingLogId = 1,
                 userId = userId,
-                hydrogenStationId = stationId,
-                vehicleId = vehicleId,
+                chrstnMno = chrstnMno,
                 startTime = startTime,
                 endTime = endTime,
                 chargedAmount = chargedAmount,

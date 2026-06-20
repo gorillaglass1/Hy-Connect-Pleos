@@ -2,14 +2,13 @@ package com.hyconnect.pleos.data.network
 
 import com.google.gson.annotations.SerializedName
 
-// TODO: 시간/날짜 필드는 서버 포맷 확정 후 kotlinx-datetime 또는 java.time 변환으로 교체.
+// 충전소 식별자는 문자열 chrstn_mno. 서버에 차량 테이블이 없으므로 vehicle_id는 포함하지 않는다.
+// TODO: 서버 charging_log_schema 원본 확인 후 필드명을 최종 정렬한다.
 data class ChargingLogRequestDto(
     @SerializedName("user_id")
     val userId: Int,
-    @SerializedName("hydrogen_station_id")
-    val hydrogenStationId: Int,
-    @SerializedName("vehicle_id")
-    val vehicleId: Int,
+    @SerializedName("chrstn_mno")
+    val chrstnMno: String,
     @SerializedName("start_time")
     val startTime: String,
     @SerializedName("end_time")
@@ -27,10 +26,8 @@ data class ChargingLogResponseDto(
     val chargingLogId: Int,
     @SerializedName("user_id")
     val userId: Int,
-    @SerializedName("hydrogen_station_id")
-    val hydrogenStationId: Int,
-    @SerializedName("vehicle_id")
-    val vehicleId: Int,
+    @SerializedName("chrstn_mno")
+    val chrstnMno: String,
     @SerializedName("start_time")
     val startTime: String,
     @SerializedName("end_time")

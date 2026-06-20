@@ -118,6 +118,19 @@ class HyConnectViewModel(
         _uiState.update { it.copy(nlQuery = query) }
     }
 
+    /**
+     * 추천 카드에서 충전소를 경로로 선택(경로안내)할 때 호출한다.
+     * 선택한 충전소 관리번호(chrstn_mno = [HydrogenStation.id])로 선호 가중치 학습을 서버에 전송한다.
+     */
+    fun selectStationForRoute(station: HydrogenStation) {
+        viewModelScope.launch {
+            val result = repository.submitStationSelection(station.id)
+            if (result is NetworkResult.Error) {
+                Log.w("HyConnect", "preference learning failed: ${result.message}")
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }

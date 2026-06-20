@@ -2,43 +2,24 @@ package com.hyconnect.pleos.data.repository
 
 import android.util.Log
 import com.google.gson.JsonParseException
-import com.hyconnect.pleos.data.mapper.mergeWithRealtimeAndChargers
 import com.hyconnect.pleos.data.mapper.toAiRecommendation
-import com.hyconnect.pleos.data.mapper.toRecommendedStations
 import com.hyconnect.pleos.data.mapper.toStationRecommendation
-import com.hyconnect.pleos.data.mapper.toVehicleState
 import com.hyconnect.pleos.data.model.AiRecommendation
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
-import com.hyconnect.pleos.data.network.NlStationRecommendationRequestDto
 import com.hyconnect.pleos.data.network.ChargingLogRequestDto
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
-import com.hyconnect.pleos.data.network.HydrogenChargerDto
-import com.hyconnect.pleos.data.network.HydrogenStationDto
-import com.hyconnect.pleos.data.network.HydrogenStationRealtimeDto
 import com.hyconnect.pleos.data.network.HyConnectService
 import com.hyconnect.pleos.data.network.NetworkResult
-import com.hyconnect.pleos.data.network.OptimizedCandidateStationDto
-import com.hyconnect.pleos.data.network.OptimizedChargerCandidateDto
-import com.hyconnect.pleos.data.network.OptimizedDestinationDto
-import com.hyconnect.pleos.data.network.OptimizedLocationDto
-import com.hyconnect.pleos.data.network.OptimizedNavigationContextDto
-import com.hyconnect.pleos.data.network.OptimizedRecommendationPreferencesDto
-import com.hyconnect.pleos.data.network.OptimizedRecommendationTriggerDto
-import com.hyconnect.pleos.data.network.OptimizedRealtimeStationStatusDto
-import com.hyconnect.pleos.data.network.OptimizedStationRecommendationRequestDto
-import com.hyconnect.pleos.data.network.OptimizedStationRecommendationResponseDto
-import com.hyconnect.pleos.data.network.OptimizedVehicleContextDto
-import com.hyconnect.pleos.data.network.ReservationRequestDto
-import com.hyconnect.pleos.data.network.ReservationResponseDto
+import com.hyconnect.pleos.data.network.PersonalizedRecommendationRequestDto
+import com.hyconnect.pleos.data.network.PreferenceLearningRequestDto
+import com.hyconnect.pleos.data.network.RecommendedStationResponseDto
+import com.hyconnect.pleos.data.network.UserPreferenceResponseDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import retrofit2.HttpException
 import java.io.IOException
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 interface HyConnectRepository {
     suspend fun getVehicleState(): NetworkResult<VehicleState>
@@ -55,18 +36,19 @@ interface HyConnectRepository {
         userId: Int = DEFAULT_USER_ID,
     ): NetworkResult<StationRecommendation>
 
-    suspend fun createReservation(
-        stationId: Int,
-        chargerId: Int,
+    /**
+     * 추천 카드의 경로안내(선택) 시 호출. 선택한 충전소 관리번호로 선호 가중치를 학습시킨다.
+     */
+    suspend fun submitStationSelection(
+        chrstnMno: String,
         userId: Int = DEFAULT_USER_ID,
-    ): NetworkResult<ReservationResponseDto>
+    ): NetworkResult<UserPreferenceResponseDto>
 
     suspend fun createChargingLog(
-        userId: Int = DEFAULT_USER_ID,
-        stationId: Int,
-        vehicleId: Int = DEFAULT_VEHICLE_ID,
+        chrstnMno: String,
         startTime: String,
         endTime: String,
+        userId: Int = DEFAULT_USER_ID,
         chargedAmount: Double? = null,
         chargingCost: Double? = null,
         waitingTime: Int? = null,
@@ -74,52 +56,49 @@ interface HyConnectRepository {
 
     companion object {
         const val DEFAULT_USER_ID = 1
-        const val DEFAULT_VEHICLE_ID = 1
     }
 }
 
 class HyConnectRepositoryImpl(
     private val service: HyConnectService,
     private val userId: Int = HyConnectRepository.DEFAULT_USER_ID,
-    private val vehicleId: Int = HyConnectRepository.DEFAULT_VEHICLE_ID,
 ) : HyConnectRepository {
     // TODO: 추후 Pleos Fused Location SDK 또는 Android Location API로 교체.
-    private val currentLat: Double? = 37.934258
-    private val currentLng: Double? = 127.723832
+    private val currentLat: Double = 37.934258
+    private val currentLng: Double = 127.723832
 
     // TODO: 추후 Pleos NaviHelper SDK getDestinationInfo()로 실제 목적지 좌표를 채운다.
     private val destinationLat: Double = 37.800006
     private val destinationLng: Double = 127.778294
 
     override suspend fun getVehicleState(): NetworkResult<VehicleState> = safeApiCall {
-        val vehicle = loadVehicleOrNull()
-        vehicle?.toVehicleState() ?: VehicleState(
+        // 서버에는 차량 테이블이 없다. 연료/주행가능거리는 클라이언트 입력값이다.
+        // TODO: Pleos Vehicle SDK가 연동되면 실제 차량 상태로 교체한다.
+        VehicleState(
             hydrogenPercent = 28,
             vehicleRangeKm = 96,
-            message = "로컬 추천 서버 테스트를 위해 임시 차량 상태를 사용합니다.",
+            message = "차량 SDK 연동 전까지 임시 차량 상태를 사용합니다.",
         )
     }
 
     override suspend fun getAiRecommendation(): NetworkResult<AiRecommendation> = safeApiCall {
         runCatching {
-            loadOptimizedStationRecommendation().toAiRecommendation()
+            fetchPersonalizedRecommendations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
+                .toAiRecommendation()
         }.getOrElse {
-            loadAiRecommendationFromHistories()
+            Log.w("HyConnect", "ai recommendation failed, fallback to demo", it)
+            demoAiRecommendation()
         }
     }
 
     override suspend fun getRecommendedStations(): NetworkResult<List<HydrogenStation>> = safeApiCall {
         runCatching {
-            loadOptimizedStationRecommendation().toRecommendedStations()
+            fetchPersonalizedRecommendations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
+                .toStationRecommendation()
+                .stations
         }.getOrElse {
-            runCatching {
-                loadRecommendedStationsFromFastApiResources()
-            }.getOrElse {
-                // uvicorn 서버가 꺼져 있어도 Pleos 에뮬레이터 화면 검증은 가능하도록 최소 데모 후보를 표시한다.
-                demoOptimizedCandidateStations().mapIndexed { index, station ->
-                    station.toFallbackHydrogenStation(isRecommended = index == 0)
-                }
-            }
+            Log.w("HyConnect", "recommended stations failed, fallback to demo", it)
+            demoNlStationRecommendation(DEFAULT_RANGE_KM.toInt()).stations
         }
     }
 
@@ -129,16 +108,10 @@ class HyConnectRepositoryImpl(
         userId: Int,
     ): NetworkResult<StationRecommendation> = safeApiCall {
         runCatching {
-            service.getNlStationRecommendations(
-                NlStationRecommendationRequestDto(
-                    userId = userId,
-                    currentLatitude = currentLat ?: 0.0,
-                    currentLongitude = currentLng ?: 0.0,
-                    destinationLatitude = destinationLat,
-                    destinationLongitude = destinationLng,
-                    remainingRange = remainingRange,
-                    nlQuery = nlQuery,
-                ),
+            fetchPersonalizedRecommendations(
+                nlQuery = nlQuery,
+                remainingRange = remainingRange.toDouble(),
+                userId = userId,
             ).toStationRecommendation()
         }.getOrElse {
             Log.w("HyConnect", "nl recommendation failed, fallback to demo", it)
@@ -147,148 +120,19 @@ class HyConnectRepositoryImpl(
         }
     }
 
-    private suspend fun loadAiRecommendationFromHistories(): AiRecommendation {
-        val histories = runCatching {
-            service.getRecommendationHistories(userId = userId, vehicleId = vehicleId)
-        }.getOrDefault(emptyList())
-        val bestHistory = histories.maxByOrNull { it.recommendationScore ?: Double.NEGATIVE_INFINITY }
-
-        return if (bestHistory == null) {
-            AiRecommendation(
-                title = "지금 충전하기 좋은 타이밍이에요",
-                dustSummary = "",
-                routeSummary = "",
-                reason = "실시간 충전소 상태와 대기 시간을 기준으로 추천합니다.",
-            )
-        } else {
-            val stationName = runCatching {
-                service.getHydrogenStations(hydrogenStationId = bestHistory.hydrogenStationId, limit = 1)
-                    .firstOrNull()
-                    ?.name
-            }.getOrNull()
-            bestHistory.toAiRecommendation(stationName)
-        }
-    }
-
-    private suspend fun loadRecommendedStationsFromFastApiResources(): List<HydrogenStation> {
-        val stations = service.getHydrogenStations()
-        val realtime = service.getHydrogenStationRealtime()
-        val chargers = service.getHydrogenChargers()
-        val histories = runCatching {
-            service.getRecommendationHistories(userId = userId, vehicleId = vehicleId)
-        }.getOrDefault(emptyList())
-
-        return stations.mergeWithRealtimeAndChargers(
-            realtimeList = realtime,
-            chargerList = chargers,
-            recommendationHistories = histories,
-            currentLat = currentLat,
-            currentLng = currentLng,
-        )
-    }
-
-    private suspend fun loadOptimizedStationRecommendation(): OptimizedStationRecommendationResponseDto {
-        val vehicle = loadVehicleOrNull()
-        val vehicleState = vehicle?.toVehicleState() ?: VehicleState(
-            hydrogenPercent = 28,
-            vehicleRangeKm = 96,
-            message = "로컬 추천 서버 테스트를 위해 임시 차량 상태를 사용합니다.",
-        )
-        val candidateStations = withTimeoutOrNull(1_500) {
-            val stations = service.getHydrogenStations()
-            val realtime = service.getHydrogenStationRealtime()
-            val chargers = service.getHydrogenChargers()
-            stations.toOptimizedCandidates(
-                realtimeList = realtime,
-                chargerList = chargers,
-            )
-        } ?: demoOptimizedCandidateStations()
-
-        return service.getOptimizedStationRecommendations(
-            OptimizedStationRecommendationRequestDto(
-                userId = userId,
-                vehicle = OptimizedVehicleContextDto(
-                    vehicleId = vehicle?.vehicleId ?: vehicleId,
-                    model = vehicle?.model ?: "NEXO",
-                    fuelType = vehicle?.fuelType ?: "hydrogen",
-                    remainingHydrogenPercent = vehicleState.hydrogenPercent,
-                    remainingRangeKm = vehicleState.vehicleRangeKm,
-                    tankCapacityKg = vehicle?.tankCapacity ?: 6.33,
-                    avgEfficiencyKmPerKg = vehicle?.avgEfficiency ?: 96.0,
-                ),
-                location = OptimizedLocationDto(
-                    latitude = currentLat ?: 0.0,
-                    longitude = currentLng ?: 0.0,
-                    timestamp = Instant.now().toString(),
-                ),
-                // TODO: Pleos NaviHelper SDK에서 목적지, 경로 거리, 도착 예상 잔여 주행가능거리, route polyline을 받아 교체.
-                navigation = OptimizedNavigationContextDto(
-                    destination = OptimizedDestinationDto(
-                        name = "부산역",
-                        latitude = 35.1151,
-                        longitude = 129.0415,
-                    ),
-                    remainingRouteDistanceKm = 390.5,
-                    estimatedArrivalTime = null,
-                    estimatedRemainingRangeAtArrivalKm = 12,
-                    routePolyline = null,
-                ),
-                trigger = OptimizedRecommendationTriggerDto(
-                    type = if (vehicleState.hydrogenPercent <= 30) "LOW_FUEL" else "LOW_RANGE",
-                    reason = "주행가능거리 또는 도착 예상 잔여 주행가능거리가 임계값 이하입니다.",
-                    rangeThresholdKm = 120,
-                    arrivalRangeThresholdKm = 50,
-                    fuelThresholdPercent = 30,
-                ),
-                preferences = OptimizedRecommendationPreferencesDto(
-                    prefer700bar = true,
-                    maxDetourKm = 15.0,
-                    prioritize = listOf(
-                        "reachable",
-                        "wait_time",
-                        "price",
-                        "detour_distance",
-                        "charger_status",
-                    ),
-                ),
-                candidateStations = candidateStations,
-            ),
-        )
-    }
-
-    private suspend fun loadVehicleOrNull() = withTimeoutOrNull(1_500) {
-        runCatching { service.getVehicle(vehicleId) }.recoverCatching {
-            service.getVehicles(userId = userId, vehicleId = vehicleId).first()
-        }.getOrNull()
-    }
-
-    // TODO: 향후 예약 버튼 추가 시 이 Repository 함수를 연결.
-    override suspend fun createReservation(
-        stationId: Int,
-        chargerId: Int,
+    override suspend fun submitStationSelection(
+        chrstnMno: String,
         userId: Int,
-    ): NetworkResult<ReservationResponseDto> = safeApiCall {
-        val reservationTime = Instant.now()
-        val expireTime = reservationTime.plus(10, ChronoUnit.MINUTES)
-        service.createReservation(
-            ReservationRequestDto(
-                hydrogenChargerId = chargerId,
-                hydrogenStationId = stationId,
-                reservationStatus = "reserved",
-                userId = userId,
-                reservationTime = reservationTime.toString(),
-                expireTime = expireTime.toString(),
-            ),
-        )
+    ): NetworkResult<UserPreferenceResponseDto> = safeApiCall {
+        service.learnFromSelection(userId, PreferenceLearningRequestDto(chrstnMno = chrstnMno))
     }
 
     // TODO: 충전 완료 이벤트가 생기면 Pleos Vehicle SDK 또는 서버 이벤트와 연결.
     override suspend fun createChargingLog(
-        userId: Int,
-        stationId: Int,
-        vehicleId: Int,
+        chrstnMno: String,
         startTime: String,
         endTime: String,
+        userId: Int,
         chargedAmount: Double?,
         chargingCost: Double?,
         waitingTime: Int?,
@@ -296,16 +140,32 @@ class HyConnectRepositoryImpl(
         service.createChargingLog(
             ChargingLogRequestDto(
                 userId = userId,
-                hydrogenStationId = stationId,
-                vehicleId = vehicleId,
+                chrstnMno = chrstnMno,
                 startTime = startTime,
                 endTime = endTime,
                 chargedAmount = chargedAmount,
                 chargingCost = chargingCost,
                 waitingTime = waitingTime,
             ),
-        )
+        ).first()
     }
+
+    private suspend fun fetchPersonalizedRecommendations(
+        nlQuery: String?,
+        remainingRange: Double,
+        userId: Int = this.userId,
+    ): List<RecommendedStationResponseDto> =
+        service.getPersonalizedRecommendations(
+            PersonalizedRecommendationRequestDto(
+                userId = userId,
+                currentLatitude = currentLat,
+                currentLongitude = currentLng,
+                destinationLatitude = destinationLat,
+                destinationLongitude = destinationLng,
+                remainingRange = remainingRange,
+                nlQuery = nlQuery,
+            ),
+        )
 
     private suspend fun <T> safeApiCall(block: suspend () -> T): NetworkResult<T> =
         withContext(Dispatchers.IO) {
@@ -333,7 +193,20 @@ class HyConnectRepositoryImpl(
                 NetworkResult.Error("데이터를 불러오지 못했습니다.", exception)
             }
         }
+
+    private companion object {
+        // 추천 흐름에서 주행가능거리 입력이 없을 때 쓰는 기본값(km).
+        const val DEFAULT_RANGE_KM = 100.0
+    }
 }
+
+private fun demoAiRecommendation(): AiRecommendation =
+    AiRecommendation(
+        title = "현대 수소충전소 양재 방문을 추천해요",
+        dustSummary = "",
+        routeSummary = "경로에서 가장 가까운 충전소를 골라봤어요.",
+        reason = "대기 시간, 거리, 가격, 편의시설을 종합해 추천합니다.",
+    )
 
 private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendation =
     StationRecommendation(
@@ -343,8 +216,8 @@ private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendat
                 id = "demo-nl-1",
                 name = "현대 수소충전소 양재",
                 address = "서울 서초구 바우뫼로 12길 73",
-                status = "운영 중",
-                pressureInfo = "700bar 사용 가능",
+                status = "도달 가능",
+                pressureInfo = "대기실 · 편의점 · 화장실",
                 distanceKm = 3.2,
                 waitMinutes = 5,
                 isRecommended = true,
@@ -355,8 +228,8 @@ private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendat
                 id = "demo-nl-2",
                 name = "H 강동 수소스테이션",
                 address = "서울 강동구 천호대로 1452",
-                status = "운영 중",
-                pressureInfo = "350bar / 700bar",
+                status = "도달 가능",
+                pressureInfo = "세차장 · 화장실",
                 distanceKm = 8.7,
                 waitMinutes = 12,
                 latitude = 37.545762,
@@ -366,8 +239,8 @@ private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendat
                 id = "demo-nl-3",
                 name = "남양주 수소충전소",
                 address = "경기 남양주시 경춘로 100",
-                status = "운영 중",
-                pressureInfo = "700bar",
+                status = "도달 가능",
+                pressureInfo = "편의점",
                 distanceKm = 15.4,
                 waitMinutes = 9,
                 latitude = 37.635120,
@@ -375,99 +248,3 @@ private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendat
             ),
         ),
     )
-
-private fun demoOptimizedCandidateStations(): List<OptimizedCandidateStationDto> =
-    listOf(
-        OptimizedCandidateStationDto(
-            hydrogenStationId = 101,
-            name = "양재 수소충전소",
-            address = "서울 서초구",
-            latitude = 37.4681,
-            longitude = 127.0387,
-            distanceFromCurrentKm = 8.4,
-            detourDistanceKm = 2.1,
-            isOnRoute = true,
-            pricePerKg = 9900,
-            paymentSupported = "card",
-            realtime = OptimizedRealtimeStationStatusDto(
-                availableChargers = 1,
-                inUseChargers = 1,
-                queueCount = 2,
-                avgWaitTime = 10,
-                hydrogenStockKg = 120.5,
-                stationStatus = "OPEN",
-                updatedAt = Instant.now().toString(),
-            ),
-            chargers = listOf(
-                OptimizedChargerCandidateDto(
-                    hydrogenChargerId = 1001,
-                    chargerStatus = "AVAILABLE",
-                    hydrogenPressureBar = 700,
-                    pressureType = "700bar",
-                ),
-            ),
-        ),
-    )
-
-private fun OptimizedCandidateStationDto.toFallbackHydrogenStation(isRecommended: Boolean): HydrogenStation =
-    HydrogenStation(
-        id = hydrogenStationId.toString(),
-        name = name,
-        address = address,
-        status = realtime?.stationStatus ?: "서버 연결 대기",
-        pressureInfo = if (chargers.any { it.hydrogenPressureBar == 700 || it.pressureType?.contains("700") == true }) {
-            "700bar 사용 가능"
-        } else {
-            "압력 정보 없음"
-        },
-        distanceKm = distanceFromCurrentKm ?: detourDistanceKm ?: 0.0,
-        waitMinutes = realtime?.avgWaitTime ?: ((realtime?.queueCount ?: 0) * 5),
-        isRecommended = isRecommended,
-        latitude = latitude,
-        longitude = longitude,
-    )
-
-private fun List<HydrogenStationDto>.toOptimizedCandidates(
-    realtimeList: List<HydrogenStationRealtimeDto>,
-    chargerList: List<HydrogenChargerDto>,
-): List<OptimizedCandidateStationDto> {
-    val realtimeByStationId = realtimeList.associateBy { it.hydrogenStationId }
-    val chargersByStationId = chargerList.groupBy { it.hydrogenStationId }
-
-    return map { station ->
-        val realtime = realtimeByStationId[station.hydrogenStationId]
-        OptimizedCandidateStationDto(
-            hydrogenStationId = station.hydrogenStationId,
-            name = station.name,
-            address = station.address,
-            latitude = station.latitude,
-            longitude = station.longitude,
-            // TODO: NaviHelper 경로 polyline 기반으로 현재 위치 거리와 경로 이탈 거리를 계산해 교체.
-            distanceFromCurrentKm = null,
-            detourDistanceKm = null,
-            isOnRoute = false,
-            // TODO: 서버 충전소 가격 필드가 확정되면 price_per_kg를 채운다.
-            pricePerKg = null,
-            paymentSupported = station.paymentSupported,
-            realtime = realtime?.let {
-                OptimizedRealtimeStationStatusDto(
-                    availableChargers = it.availableChargers,
-                    inUseChargers = it.inUseChargers,
-                    queueCount = it.queueCount,
-                    avgWaitTime = it.avgWaitTime,
-                    hydrogenStockKg = it.hydrogenStockKg,
-                    stationStatus = it.stationStatus,
-                    updatedAt = it.updatedAt,
-                )
-            },
-            chargers = chargersByStationId[station.hydrogenStationId].orEmpty().map { charger ->
-                OptimizedChargerCandidateDto(
-                    hydrogenChargerId = charger.hydrogenChargerId,
-                    chargerStatus = charger.chargerStatus,
-                    hydrogenPressureBar = charger.hydrogenPressureBar,
-                    pressureType = charger.pressureType,
-                )
-            },
-        )
-    }
-}
