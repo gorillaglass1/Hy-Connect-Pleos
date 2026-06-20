@@ -59,9 +59,9 @@
 - 더미 데이터를 완전히 제거할 때는 `app/build.gradle.kts`의 `USE_DUMMY_DATA` 필드와 `DummyHyConnectRepository`, `DummyHyConnectData`를 삭제하면 됩니다.
 
 ### 내비게이션 연동
-- 현재 `경로 안내` 버튼은 충전소 좌표가 있을 때 Android `geo:` 인텐트로 연결 가능한 내비게이션 앱을 실행합니다.
-- Pleos 문서 기준 NaviHelper는 별도 앱 등록 흐름은 보이지 않지만, `ai.pleos.playground:NaviHelper:2.0.3` 의존성과 `pleos.car.permission.NAVI_ROUTE`, `pleos.car.permission.NAVI_ROUTE_SEARCH` 권한이 필요합니다.
-- NaviHelper 승인/의존성 사용이 가능해지면 `NavigationClient` 구현체만 SDK 기반 구현으로 교체하면 UI와 ViewModel은 그대로 유지됩니다.
+- 현재 `경유지 추가` 버튼은 충전소 좌표가 있을 때 Pleos NaviHelper SDK의 `addWaypoint(RequestWaypointInfo)`로 Navigation 앱에 경유지를 추가합니다.
+- Pleos 문서 기준 별도 인증 흐름 없이 `ai.pleos.playground:NaviHelper:2.0.3` 의존성과 `pleos.car.permission.NAVI_ROUTE`, `pleos.car.permission.NAVI_ROUTE_SEARCH` 등 매니페스트 권한으로 연동합니다.
+- NaviHelper 호출이 실패하는 환경에서는 Android `geo:` 인텐트 폴백으로 충전소 위치를 열어 화면 검증을 이어갈 수 있습니다.
 
 ## 5) 현재 MainActivity 코드 설명
 
@@ -70,7 +70,7 @@
 ### 동작 요약
 - `MainActivity`는 `ComponentActivity`를 상속합니다.
 - `HyConnectViewModel`의 `uiState`를 수집해 Compose 기반 `HyConnectScreen`에 전달합니다.
-- `경로 안내` 버튼은 `NavigationClient`를 통해 Android 내비게이션 인텐트로 연결합니다.
+- `경유지 추가` 버튼은 `NavigationClient`를 통해 Pleos Navigation에 충전소를 경유지로 추가합니다.
 - 음성 호출, 설정, 더보기는 아직 프로토타입 Toast로 동작합니다.
 
 ### 현재 상태
@@ -79,4 +79,4 @@
 
 ## 6) 팀 작업 시 참고사항
 - UI는 Jetpack Compose 기준으로 확장합니다.
-- SDK 승인 후에도 `NavigationClient`, `HyConnectRepository` 인터페이스 경계는 유지하고 구현체만 교체하는 방식이 가장 단순합니다.
+- 향후 경로 요청 방식이 바뀌어도 `NavigationClient`, `HyConnectRepository` 인터페이스 경계는 유지하고 구현체만 교체하는 방식이 가장 단순합니다.

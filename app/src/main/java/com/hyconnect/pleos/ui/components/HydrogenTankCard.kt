@@ -3,12 +3,12 @@ package com.hyconnect.pleos.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +30,6 @@ import com.hyconnect.pleos.ui.theme.HyBorder
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.ui.theme.HySurface
 import com.hyconnect.pleos.ui.theme.HyTankRest
-import com.hyconnect.pleos.ui.theme.HyTextPrimary
 import com.hyconnect.pleos.ui.theme.HyTextSecondary
 
 @Composable
@@ -41,53 +40,41 @@ fun HydrogenTankCard(
     val levelColor = hydrogenLevelColor(vehicleState.hydrogenPercent)
     val gradient = hydrogenGradient(vehicleState.hydrogenPercent)
 
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(HySurface, RoundedCornerShape(22.dp))
-            .border(1.dp, HyBorder, RoundedCornerShape(22.dp))
-            .padding(horizontal = 24.dp, vertical = 18.dp),
+            .background(HySurface, RoundedCornerShape(16.dp))
+            .border(1.dp, HyBorder, RoundedCornerShape(16.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 라벨 행: 수소 잔량 + % + 주행거리
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "수소 잔량",
-                color = HyTextSecondary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text = "  ${vehicleState.hydrogenPercent}%",
-                color = levelColor,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = "${vehicleState.vehicleRangeKm}km 주행가능",
-                color = HyTextPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 심플 한 줄 게이지
+        Text(
+            text = "수소",
+            color = HyTextSecondary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(modifier = Modifier.width(12.dp))
         GaugeBar(
             percent = vehicleState.hydrogenPercent,
             gradient = gradient,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp),
+                .weight(1f)
+                .height(8.dp),
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
-            text = vehicleState.message,
+            text = "${vehicleState.hydrogenPercent}%",
+            color = levelColor,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.ExtraBold,
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            text = "${vehicleState.vehicleRangeKm}km",
             color = HyTextSecondary,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
         )
     }
 }
@@ -102,7 +89,6 @@ private fun GaugeBar(
         val radius = size.height / 2f
         val fillFraction = percent.coerceIn(0, 100) / 100f
 
-        // 트랙(빈 부분)
         drawRoundRect(
             color = HyTankRest,
             cornerRadius = CornerRadius(radius, radius),
@@ -113,7 +99,6 @@ private fun GaugeBar(
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
         )
 
-        // 채워진 부분
         if (fillFraction > 0f) {
             clipRect(left = 0f, top = 0f, right = size.width * fillFraction, bottom = size.height) {
                 drawRoundRect(
@@ -124,8 +109,7 @@ private fun GaugeBar(
             }
         }
 
-        // 현재 위치 마커(작은 흰 원)
-        val markerX = (size.width * fillFraction).coerceAtLeast(radius)
+        val markerX = (size.width * fillFraction).coerceIn(radius, size.width - radius)
         drawCircle(
             color = Color.White,
             radius = radius - 1.dp.toPx(),

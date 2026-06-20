@@ -145,7 +145,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.LowFuelContent(
         onRouteClick = onStationSelect,
         onMoreClick = onMoreStationsClick,
         onRefreshClick = onRefreshClick,
-        actionLabel = "경로 선택",
+        actionLabel = "경유지 추가",
         modifier = Modifier.weight(1f),
     )
 }

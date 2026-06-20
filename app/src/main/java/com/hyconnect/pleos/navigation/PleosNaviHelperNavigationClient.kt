@@ -2,14 +2,14 @@ package com.hyconnect.pleos.navigation
 
 import android.content.Context
 import android.util.Log
+import ai.pleos.playground.navi.constants.WaypointIndex
 import ai.pleos.playground.navi.data.RequestWaypointInfo
-import ai.pleos.playground.navi.data.WaypointIndex
 import ai.pleos.playground.navi.helper.NaviHelper
 import com.hyconnect.pleos.data.model.HydrogenStation
 
 /**
  * Pleos NaviHelper SDK를 사용해 충전소를 경유지로 추가한다.
- * 수소충전소는 POI ID가 없으므로 poiId/poiSubId는 빈 값으로 전달하고 좌표로 경유지를 설정한다.
+ * 수소충전소 서버 ID를 POI ID로 함께 전달하고 좌표로 경유지를 설정한다.
  *
  * Lifecycle: Activity.onCreate() → initialize(), Activity.onDestroy() → release()
  */
@@ -33,6 +33,9 @@ class PleosNaviHelperNavigationClient(
             ?: return NavigationResult.Failed("${station.name}의 좌표 정보가 없습니다.")
         val lng = station.longitude
             ?: return NavigationResult.Failed("${station.name}의 좌표 정보가 없습니다.")
+        val poiId = station.id
+            .filter { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' }
+            .ifBlank { "hyconnect${station.name.hashCode().toUInt()}" }
 
         return try {
             naviHelper.addWaypoint(
@@ -40,7 +43,7 @@ class PleosNaviHelperNavigationClient(
                     latitude = lat,
                     longitude = lng,
                     waypointIndex = WaypointIndex.FIRST,
-                    poiId = "",
+                    poiId = poiId,
                     poiName = station.name,
                     poiSubId = "0",
                     address = station.address,
