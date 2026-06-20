@@ -3,15 +3,12 @@ package com.hyconnect.pleos.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,14 +20,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.ui.theme.HyBlue
-import com.hyconnect.pleos.ui.theme.HyBlueSoft
 import com.hyconnect.pleos.ui.theme.HyBorder
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.ui.theme.HySurface
@@ -43,158 +38,134 @@ fun HydrogenTankCard(
     vehicleState: VehicleState,
     modifier: Modifier = Modifier,
 ) {
-    val tankColors = hydrogenLevelColors(vehicleState.hydrogenPercent)
+    val levelColor = hydrogenLevelColor(vehicleState.hydrogenPercent)
+    val gradient = hydrogenGradient(vehicleState.hydrogenPercent)
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .background(HySurface, RoundedCornerShape(22.dp))
             .border(1.dp, HyBorder, RoundedCornerShape(22.dp))
-            .padding(24.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 24.dp, vertical = 18.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        // 라벨 행: 수소 잔량 + % + 주행거리
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "수소 잔량",
                 color = HyTextSecondary,
-                fontSize = 18.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
             )
-            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "${vehicleState.hydrogenPercent}%",
-                color = tankColors.primary,
-                fontSize = 52.sp,
+                text = "  ${vehicleState.hydrogenPercent}%",
+                color = levelColor,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
-                lineHeight = 56.sp,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = vehicleState.message,
+                text = "${vehicleState.vehicleRangeKm}km 주행가능",
                 color = HyTextPrimary,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "예상 주행 가능 거리 ${vehicleState.vehicleRangeKm}km",
-                color = HyTextSecondary,
                 fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
             )
         }
 
-        Spacer(modifier = Modifier.width(28.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        HydrogenTankVisual(
+        // 심플 한 줄 게이지
+        GaugeBar(
             percent = vehicleState.hydrogenPercent,
-            colors = tankColors,
+            gradient = gradient,
             modifier = Modifier
-                .width(260.dp)
-                .height(104.dp),
+                .fillMaxWidth()
+                .height(10.dp),
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = vehicleState.message,
+            color = HyTextSecondary,
+            fontSize = 13.sp,
         )
     }
 }
 
 @Composable
-private fun HydrogenTankVisual(
+private fun GaugeBar(
     percent: Int,
-    colors: HydrogenLevelColors,
+    gradient: List<Color>,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .background(colors.container, RoundedCornerShape(28.dp))
-            .padding(horizontal = 18.dp, vertical = 20.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(54.dp)) {
-            val capWidth = 18.dp.toPx()
-            val tankWidth = size.width - capWidth
-            val tankHeight = size.height
-            val radius = tankHeight / 2f
-            val fillWidth = tankWidth * percent.coerceIn(0, 100) / 100f
+    Canvas(modifier = modifier) {
+        val radius = size.height / 2f
+        val fillFraction = percent.coerceIn(0, 100) / 100f
 
-            drawRoundRect(
-                color = HyTankRest,
-                topLeft = Offset.Zero,
-                size = Size(tankWidth, tankHeight),
-                cornerRadius = CornerRadius(radius, radius),
-            )
-            drawRoundRect(
-                color = HyBorder,
-                topLeft = Offset.Zero,
-                size = Size(tankWidth, tankHeight),
-                cornerRadius = CornerRadius(radius, radius),
-                style = Stroke(width = 2.dp.toPx()),
-            )
+        // 트랙(빈 부분)
+        drawRoundRect(
+            color = HyTankRest,
+            cornerRadius = CornerRadius(radius, radius),
+        )
+        drawRoundRect(
+            color = HyBorder,
+            cornerRadius = CornerRadius(radius, radius),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
+        )
 
-            clipRect(left = 0f, top = 0f, right = fillWidth, bottom = tankHeight) {
+        // 채워진 부분
+        if (fillFraction > 0f) {
+            clipRect(left = 0f, top = 0f, right = size.width * fillFraction, bottom = size.height) {
                 drawRoundRect(
-                    brush = Brush.horizontalGradient(
-                        colors.gradient,
-                    ),
-                    topLeft = Offset.Zero,
-                    size = Size(tankWidth, tankHeight),
+                    brush = Brush.horizontalGradient(gradient),
+                    size = Size(size.width, size.height),
                     cornerRadius = CornerRadius(radius, radius),
                 )
             }
-
-            val bubbles = listOf(
-                Offset(tankWidth * 0.18f, tankHeight * 0.35f) to 4.dp.toPx(),
-                Offset(tankWidth * 0.31f, tankHeight * 0.64f) to 3.dp.toPx(),
-                Offset(tankWidth * 0.47f, tankHeight * 0.40f) to 5.dp.toPx(),
-                Offset(tankWidth * 0.58f, tankHeight * 0.68f) to 3.5.dp.toPx(),
-                Offset(tankWidth * 0.70f, tankHeight * 0.34f) to 4.dp.toPx(),
-            )
-            bubbles.forEach { (center, radiusPx) ->
-                if (center.x < fillWidth - radiusPx) {
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.46f),
-                        radius = radiusPx,
-                        center = center,
-                    )
-                }
-            }
-
-            drawRoundRect(
-                color = Color(0xFFC7D0DA),
-                topLeft = Offset(tankWidth - 1.dp.toPx(), tankHeight * 0.24f),
-                size = Size(capWidth, tankHeight * 0.52f),
-                cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
-            )
         }
+
+        // 현재 위치 마커(작은 흰 원)
+        val markerX = (size.width * fillFraction).coerceAtLeast(radius)
+        drawCircle(
+            color = Color.White,
+            radius = radius - 1.dp.toPx(),
+            center = Offset(markerX, size.height / 2f),
+        )
     }
 }
 
-private data class HydrogenLevelColors(
-    val primary: Color,
-    val container: Color,
-    val gradient: List<Color>,
-)
-
-private fun hydrogenLevelColors(percent: Int): HydrogenLevelColors =
+private fun hydrogenLevelColor(percent: Int): Color =
     when {
-        percent < 25 -> HydrogenLevelColors(
-            primary = Color(0xFFE03131),
-            container = Color(0xFFFFECEC),
-            gradient = listOf(Color(0xFFFF8787), Color(0xFFE03131), Color(0xFFC92A2A)),
-        )
-        percent < 50 -> HydrogenLevelColors(
-            primary = Color(0xFFF08C00),
-            container = Color(0xFFFFF3D6),
-            gradient = listOf(Color(0xFFFFC078), Color(0xFFF08C00), Color(0xFFE67700)),
-        )
-        else -> HydrogenLevelColors(
-            primary = HyBlue,
-            container = HyBlueSoft,
-            gradient = listOf(Color(0xFF53B7FF), HyBlue, Color(0xFF0F5FD7)),
-        )
+        percent < 25 -> Color(0xFFE03131)
+        percent < 50 -> Color(0xFFF08C00)
+        else -> HyBlue
+    }
+
+private fun hydrogenGradient(percent: Int): List<Color> =
+    when {
+        percent < 25 -> listOf(Color(0xFFFF8787), Color(0xFFE03131))
+        percent < 50 -> listOf(Color(0xFFFFC078), Color(0xFFF08C00))
+        else -> listOf(Color(0xFF53B7FF), HyBlue)
     }
 
 @Preview(showBackground = true, widthDp = 720)
 @Composable
-private fun HydrogenTankCardPreview() {
+private fun HydrogenTankCardLowPreview() {
+    HyConnectTheme {
+        HydrogenTankCard(
+            vehicleState = VehicleState(
+                hydrogenPercent = 23,
+                vehicleRangeKm = 96,
+                message = "충전이 필요합니다.",
+            ),
+            modifier = Modifier.padding(16.dp),
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 720)
+@Composable
+private fun HydrogenTankCardFullPreview() {
     HyConnectTheme {
         HydrogenTankCard(
             vehicleState = VehicleState(

@@ -9,16 +9,15 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hyconnect.pleos.data.model.HydrogenStation
-import com.hyconnect.pleos.navigation.AndroidGeoNavigationClient
-import com.hyconnect.pleos.navigation.NavigationClient
 import com.hyconnect.pleos.navigation.NavigationResult
+import com.hyconnect.pleos.navigation.PleosNaviHelperNavigationClient
 import com.hyconnect.pleos.ui.HyConnectScreen
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.viewmodel.HyConnectViewModel
 
 class MainActivity : ComponentActivity() {
-    private val navigationClient: NavigationClient by lazy {
-        AndroidGeoNavigationClient(this)
+    private val navigationClient: PleosNaviHelperNavigationClient by lazy {
+        PleosNaviHelperNavigationClient(this)
     }
 
     private val viewModel: HyConnectViewModel by viewModels {
@@ -27,6 +26,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        navigationClient.initialize()
 
         setContent {
             val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
@@ -62,11 +62,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        navigationClient.release()
+        super.onDestroy()
+    }
+
     private fun addWaypoint(station: HydrogenStation) {
-        // 확인 팝업에서 '경유지 추가'를 누른 뒤 호출된다.
-        // 선택한 충전소(chrstn_mno)로 선호 가중치 학습을 서버에 전송한다.
+        // 확인 팝업에서 '경유지 추가'를 누른 뒤 호출된다. 선호 학습도 함께 전송한다.
         viewModel.selectStationForRoute(station)
-        // TODO: 추후 Pleos NaviHelper SDK addWaypoint(경위도)로 교체.
         when (val result = navigationClient.addWaypoint(station)) {
             is NavigationResult.WaypointAdded -> showPrototypeAction("경유지 추가: ${result.stationName}")
             is NavigationResult.Started -> showPrototypeAction("경로 안내 시작: ${result.stationName}")

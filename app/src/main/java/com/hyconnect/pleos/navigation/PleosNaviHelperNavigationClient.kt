@@ -1,35 +1,55 @@
 package com.hyconnect.pleos.navigation
 
+import android.content.Context
+import android.util.Log
+import ai.pleos.playground.navi.data.RequestWaypointInfo
+import ai.pleos.playground.navi.data.WaypointIndex
+import ai.pleos.playground.navi.helper.NaviHelper
 import com.hyconnect.pleos.data.model.HydrogenStation
 
 /**
- * Pleos NaviHelper SDK 기반 구현 자리(스캐폴드).
+ * Pleos NaviHelper SDK를 사용해 충전소를 경유지로 추가한다.
+ * 수소충전소는 POI ID가 없으므로 poiId/poiSubId는 빈 값으로 전달하고 좌표로 경유지를 설정한다.
  *
- * 문서: https://document.pleos.ai/api-reference/connect-sdk-pleos/NaviHelper/intro
- * 의존성: ai.pleos.playground:NaviHelper:2.0.3
- * 권한:   pleos.car.permission.NAVI_ROUTE, pleos.car.permission.NAVI_ROUTE_SEARCH (AndroidManifest에 선언됨)
- *
- * 승인된 SDK가 추가되면 [fallback] 위임을 걷어내고 아래 형태로 교체한다.
- *
- *   private val naviHelper = NaviHelper.getInstance(context)
- *   fun initialize() = naviHelper.initialize()           // onCreate
- *   fun release()    = naviHelper.release()               // onDestroy
- *
- *   override fun startRouteGuidance(station): NavigationResult {
- *       naviHelper.requestRoute(Destination(station.latitude, station.longitude, station.name))
- *   }
- *   override fun addWaypoint(station): NavigationResult {
- *       naviHelper.addWaypoint(Waypoint(station.latitude, station.longitude, station.name))
- *   }
- *
- * 현재는 SDK 미승인 상태이므로 geo:/Pleos 지도 폴백([AndroidGeoNavigationClient])에 위임한다.
+ * Lifecycle: Activity.onCreate() → initialize(), Activity.onDestroy() → release()
  */
 class PleosNaviHelperNavigationClient(
-    private val fallback: NavigationClient,
+    context: Context,
+    private val fallback: NavigationClient = AndroidGeoNavigationClient(context),
 ) : NavigationClient {
+    private val naviHelper = NaviHelper(context)
+
+    fun initialize() = naviHelper.initialize()
+    fun release() = naviHelper.release()
+
     override fun startRouteGuidance(station: HydrogenStation): NavigationResult =
-        fallback.startRouteGuidance(station)
+        addWaypointToNavi(station)
 
     override fun addWaypoint(station: HydrogenStation): NavigationResult =
-        fallback.addWaypoint(station)
+        addWaypointToNavi(station)
+
+    private fun addWaypointToNavi(station: HydrogenStation): NavigationResult {
+        val lat = station.latitude
+            ?: return NavigationResult.Failed("${station.name}의 좌표 정보가 없습니다.")
+        val lng = station.longitude
+            ?: return NavigationResult.Failed("${station.name}의 좌표 정보가 없습니다.")
+
+        return try {
+            naviHelper.addWaypoint(
+                RequestWaypointInfo(
+                    latitude = lat,
+                    longitude = lng,
+                    waypointIndex = WaypointIndex.FIRST,
+                    poiId = "",
+                    poiName = station.name,
+                    poiSubId = "0",
+                    address = station.address,
+                ),
+            )
+            NavigationResult.WaypointAdded(station.name)
+        } catch (e: Exception) {
+            Log.w("HyConnect", "NaviHelper 경유지 추가 실패, geo 폴백으로 전환", e)
+            fallback.addWaypoint(station)
+        }
+    }
 }
