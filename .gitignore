@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# 서버 주소 설정(로컬 환경별로 다름)은 커밋하지 않는다.
+app/src/main/java/com/hyconnect/pleos/data/network/ServerConfig.kt

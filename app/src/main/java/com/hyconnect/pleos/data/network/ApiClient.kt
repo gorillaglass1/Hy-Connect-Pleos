@@ -25,7 +25,8 @@ object ApiClient {
         .build()
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl(BuildConfig.HYCONNECT_BASE_URL)
+        // 서버 주소는 ServerConfig 한 파일에서 관리한다.
+        .baseUrl(ServerConfig.BASE_URL)
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()

@@ -24,7 +24,7 @@ class DummyHyConnectRepository : HyConnectRepository {
     override suspend fun getNlRecommendedStations(
         nlQuery: String,
         remainingRange: Int,
-        userId: Int,
+        userId: Int?,
     ): NetworkResult<StationRecommendation> =
         dummyResult {
             StationRecommendation(

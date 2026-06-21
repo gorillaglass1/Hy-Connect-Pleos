@@ -5,6 +5,7 @@ import android.util.Log
 import ai.pleos.playground.navi.constants.NaviErrorCode
 import ai.pleos.playground.navi.constants.RouteDriving
 import ai.pleos.playground.navi.constants.WaypointIndex
+import ai.pleos.playground.navi.data.CurrentLocationInfo
 import ai.pleos.playground.navi.data.RequestWaypointInfo
 import ai.pleos.playground.navi.data.RouteInfo
 import ai.pleos.playground.navi.data.RouteStartInfo
@@ -13,6 +14,8 @@ import ai.pleos.playground.navi.data.WaypointChangedInfo
 import ai.pleos.playground.navi.helper.NaviHelper
 import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
 import com.hyconnect.pleos.data.model.HydrogenStation
+import com.hyconnect.pleos.location.CurrentLocation
+import com.hyconnect.pleos.location.CurrentLocationStore
 
 /**
  * Pleos NaviHelper SDK로 충전소까지 경로를 시작하거나 경유지로 추가한다.
@@ -64,6 +67,18 @@ class PleosNaviHelperNavigationClient(
             isRouting = routeStateInfo.isRouting
         }
 
+        override fun onCurrentLocationInfo(currentLocationInfo: CurrentLocationInfo) {
+            // 충전소 추천 요청의 current_latitude/longitude로 사용된다. (CurrentLocationStore 경유)
+            Log.d("HyConnect", "onCurrentLocationInfo $currentLocationInfo")
+            CurrentLocationStore.update(
+                CurrentLocation(
+                    latitude = currentLocationInfo.latitude,
+                    longitude = currentLocationInfo.longitude,
+                    address = currentLocationInfo.address,
+                ),
+            )
+        }
+
         override fun onWaypointChanged(waypointChangedInfo: WaypointChangedInfo) {
             onNaviEvent?.invoke(NavigationResult.WaypointAdded("경유지"))
         }
@@ -79,6 +94,13 @@ class PleosNaviHelperNavigationClient(
         naviHelper.addListener(eventListener)
         // 현재 경로 상태를 미리 받아 둔다. (onRouteStateInfo로 통지됨)
         runCatching { naviHelper.getRouteStateInfo() }
+        // 현재 위치를 미리 받아 둔다. (onCurrentLocationInfo로 통지 → CurrentLocationStore 갱신)
+        runCatching { naviHelper.getCurrentLocationInfo() }
+    }
+
+    /** 최신 현재 위치를 다시 요청한다. (결과는 onCurrentLocationInfo 콜백으로 통지) */
+    fun refreshCurrentLocation() {
+        runCatching { naviHelper.getCurrentLocationInfo() }
     }
 
     fun release() {

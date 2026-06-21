@@ -2,20 +2,20 @@ package com.hyconnect.pleos.data.repository
 
 import android.util.Log
 import com.google.gson.JsonParseException
-import com.hyconnect.pleos.data.mapper.toAiRecommendation
-import com.hyconnect.pleos.data.mapper.toStationRecommendation
+import com.hyconnect.pleos.data.mapper.toStationRecommendationFromDelivery
 import com.hyconnect.pleos.data.model.AiRecommendation
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.ChargingLogRequestDto
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
+import com.hyconnect.pleos.data.network.DeliveryStationDto
 import com.hyconnect.pleos.data.network.HyConnectService
 import com.hyconnect.pleos.data.network.NetworkResult
 import com.hyconnect.pleos.data.network.PersonalizedRecommendationRequestDto
 import com.hyconnect.pleos.data.network.PreferenceLearningRequestDto
-import com.hyconnect.pleos.data.network.RecommendedStationResponseDto
 import com.hyconnect.pleos.data.network.UserPreferenceResponseDto
+import com.hyconnect.pleos.location.CurrentLocationStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -29,11 +29,13 @@ interface HyConnectRepository {
     /**
      * 주행가능거리가 임계값 이하일 때 자연어 질의로 충전소 추천을 받는다.
      * 현재 위치/목적지 좌표는 Repository가 보유한 위치/내비 정보로 채운다.
+     *
+     * [userId]가 null이면 유저 정보 없이(요청 본문에서 user_id 생략) 추천을 요청한다.
      */
     suspend fun getNlRecommendedStations(
         nlQuery: String,
         remainingRange: Int,
-        userId: Int = DEFAULT_USER_ID,
+        userId: Int? = null,
     ): NetworkResult<StationRecommendation>
 
     /**
@@ -61,15 +63,17 @@ interface HyConnectRepository {
 
 class HyConnectRepositoryImpl(
     private val service: HyConnectService,
-    private val userId: Int = HyConnectRepository.DEFAULT_USER_ID,
+    // 로그인 사용자가 없으면 null. 이 경우 추천 요청 본문에서 user_id를 비워서 보낸다.
+    private val userId: Int? = null,
 ) : HyConnectRepository {
-    // TODO: 추후 Pleos Fused Location SDK 또는 Android Location API로 교체.
-    private val currentLat: Double = 37.934258
-    private val currentLng: Double = 127.723832
+    // 현재 위치는 NaviHelper onCurrentLocationInfo → CurrentLocationStore로 갱신된다.
+    // 아직 한 번도 수신하지 못했을 때만 아래 기본 좌표로 폴백한다.
+    private val defaultLat: Double = 37.405
+    private val defaultLng: Double = 126.721
 
     // TODO: 추후 Pleos NaviHelper SDK getDestinationInfo()로 실제 목적지 좌표를 채운다.
-    private val destinationLat: Double = 37.800006
-    private val destinationLng: Double = 127.778294
+    private val destinationLat: Double = 37.46
+    private val destinationLng: Double = 126.45
 
     override suspend fun getVehicleState(): NetworkResult<VehicleState> = safeApiCall {
         // 서버에는 차량 테이블이 없다. 연료/주행가능거리는 클라이언트 입력값이다.
@@ -83,8 +87,15 @@ class HyConnectRepositoryImpl(
 
     override suspend fun getAiRecommendation(): NetworkResult<AiRecommendation> = safeApiCall {
         runCatching {
-            fetchPersonalizedRecommendations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
-                .toAiRecommendation()
+            val top = fetchDeliveryStations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
+                .firstOrNull { it.isRecommended }
+                ?: fetchDeliveryStations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM).firstOrNull()
+            AiRecommendation(
+                title = top?.let { "${it.name} 방문을 추천해요" } ?: "지금 충전하기 좋은 타이밍이에요",
+                dustSummary = "",
+                routeSummary = top?.let { "대기 약 ${it.waitMinutes ?: 0}분 · ${it.distanceKm ?: 0.0}km" }.orEmpty(),
+                reason = "대기 시간, 거리, 가격, 편의시설을 종합해 추천합니다.",
+            )
         }.getOrElse {
             Log.w("HyConnect", "ai recommendation failed, fallback to demo", it)
             demoAiRecommendation()
@@ -93,8 +104,8 @@ class HyConnectRepositoryImpl(
 
     override suspend fun getRecommendedStations(): NetworkResult<List<HydrogenStation>> = safeApiCall {
         runCatching {
-            fetchPersonalizedRecommendations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
-                .toStationRecommendation()
+            fetchDeliveryStations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
+                .toStationRecommendationFromDelivery()
                 .stations
         }.getOrElse {
             Log.w("HyConnect", "recommended stations failed, fallback to demo", it)
@@ -105,14 +116,14 @@ class HyConnectRepositoryImpl(
     override suspend fun getNlRecommendedStations(
         nlQuery: String,
         remainingRange: Int,
-        userId: Int,
+        userId: Int?,
     ): NetworkResult<StationRecommendation> = safeApiCall {
         runCatching {
-            fetchPersonalizedRecommendations(
+            fetchDeliveryStations(
                 nlQuery = nlQuery,
                 remainingRange = remainingRange.toDouble(),
                 userId = userId,
-            ).toStationRecommendation()
+            ).toStationRecommendationFromDelivery()
         }.getOrElse {
             Log.w("HyConnect", "nl recommendation failed, fallback to demo", it)
             // 추천 서버가 꺼져 있어도 Pleos 에뮬레이터 화면 검증이 가능하도록 데모 추천을 제공한다.
@@ -150,22 +161,28 @@ class HyConnectRepositoryImpl(
         ).first()
     }
 
-    private suspend fun fetchPersonalizedRecommendations(
+    /**
+     * 로컬 서버의 `recommendations/personalized/delivery-payloads`를 호출해 충전소 목록을 가져온다.
+     * 현재 위치는 NaviHelper가 채운 [CurrentLocationStore] 값을 우선 사용하고, 없으면 기본 좌표로 폴백한다.
+     */
+    private suspend fun fetchDeliveryStations(
         nlQuery: String?,
         remainingRange: Double,
-        userId: Int = this.userId,
-    ): List<RecommendedStationResponseDto> =
-        service.getPersonalizedRecommendations(
+        userId: Int? = this.userId,
+    ): List<DeliveryStationDto> {
+        val location = CurrentLocationStore.snapshot()
+        return service.getRecommendationDeliveryPayloads(
             PersonalizedRecommendationRequestDto(
                 userId = userId,
-                currentLatitude = currentLat,
-                currentLongitude = currentLng,
+                currentLatitude = location?.latitude ?: defaultLat,
+                currentLongitude = location?.longitude ?: defaultLng,
                 destinationLatitude = destinationLat,
                 destinationLongitude = destinationLng,
                 remainingRange = remainingRange,
                 nlQuery = nlQuery,
             ),
         )
+    }
 
     private suspend fun <T> safeApiCall(block: suspend () -> T): NetworkResult<T> =
         withContext(Dispatchers.IO) {

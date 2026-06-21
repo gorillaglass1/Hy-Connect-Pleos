@@ -37,8 +37,8 @@ class HyConnectRepositoryImplTest {
     }
 
     @Test
-    fun getNlRecommendedStationsMapsPersonalizedResponse() = runBlocking {
-        enqueueJson(personalizedJson)
+    fun getNlRecommendedStationsMapsDeliveryResponse() = runBlocking {
+        enqueueJson(deliveryJson)
 
         val result = repository.getNlRecommendedStations(
             nlQuery = "인천에 있고 대기 차량이 적은 충전소",
@@ -47,17 +47,22 @@ class HyConnectRepositoryImplTest {
 
         assertTrue(result is NetworkResult.Success)
         val recommendation = (result as NetworkResult.Success).data
-        assertEquals(1, recommendation.stations.size)
+        assertEquals(2, recommendation.stations.size)
         val station = recommendation.stations.first()
-        assertEquals("2820020121HS2019018", station.id)
-        assertEquals("H인천수소충전소 에코스테이션", station.name)
+        assertEquals("2811020121HS2021033", station.id)
+        assertEquals("인천그린수소충전소", station.name)
         assertTrue(station.isRecommended)
-        assertEquals(37.39867905, station.latitude ?: 0.0, 0.0)
-        assertEquals(126.71148794, station.longitude ?: 0.0, 0.0)
+        assertEquals(9.67, station.distanceKm, 0.0)
+        assertEquals(26, station.waitMinutes)
+        assertEquals(37.43866249, station.latitude ?: 0.0, 0.0)
+        assertEquals(126.62001367, station.longitude ?: 0.0, 0.0)
 
         val request = server.takeRequest()
-        assertEquals("/recommendations/personalized", request.path)
-        assertTrue(request.body.readUtf8().contains("nl_query"))
+        assertEquals("/recommendations/personalized/delivery-payloads", request.path)
+        // 로그인 사용자가 없으면 user_id는 본문에서 생략된다.
+        val body = request.body.readUtf8()
+        assertTrue(body.contains("nl_query"))
+        assertTrue(!body.contains("user_id"))
     }
 
     @Test
@@ -86,43 +91,31 @@ class HyConnectRepositoryImplTest {
     }
 }
 
-private val personalizedJson = """
+private val deliveryJson = """
 [
   {
-    "chrstn_mno": "2820020121HS2019018",
-    "chrstn_nm": "H인천수소충전소 에코스테이션",
-    "road_nm_addr": "인천 남동구 청능대로468번길 1",
-    "vhcle_knd_cd": null,
-    "vhcle_knd_nm": null,
-    "ntsl_pc": 11000,
-    "distance_to_station": 175.82,
-    "distance_to_destination": 12.4,
-    "detour_distance": 0.36,
-    "wait_vehicles": 0,
-    "wait_time_minutes": 0,
-    "facilities": ["대기실", "세차장", "편의점", "화장실"],
-    "is_reachable": true,
-    "sub_scores": { "price": 70.0, "waiting_time": 100.0, "distance": 95.0, "facilities": 60.0 },
-    "final_score": 84.1,
-    "recommendation_reason": "사용자 가중치 분석 결과 전반적 매칭도가 매우 높습니다.",
-    "delivery_payload": {
-      "chrstn_mno": "2820020121HS2019018",
-      "chrstn_nm": "H인천수소충전소 에코스테이션",
-      "road_nm_addr": "인천 남동구 청능대로468번길 1",
-      "latitude": 37.39867905,
-      "longitude": 126.71148794,
-      "vhcle_knd_cd": null,
-      "vhcle_knd_nm": null,
-      "ntsl_pc": 11000,
-      "distance_to_station": 175.82,
-      "detour_distance": 0.36,
-      "wait_vehicles": 0,
-      "wait_time_minutes": 0,
-      "facilities": ["대기실", "세차장", "편의점", "화장실"],
-      "is_reachable": true,
-      "final_score": 84.1,
-      "recommendation_reason": "사용자 가중치 분석 결과 전반적 매칭도가 매우 높습니다."
-    }
+    "id": "2811020121HS2021033",
+    "name": "인천그린수소충전소",
+    "address": "인천 중구 축항대로290번길 124",
+    "status": "운영중",
+    "pressureInfo": "700bar 사용 가능",
+    "distanceKm": 9.67,
+    "waitMinutes": 26,
+    "isRecommended": true,
+    "latitude": 37.43866249,
+    "longitude": 126.62001367
+  },
+  {
+    "id": "2811020121HS2025028",
+    "name": "하이버스 인천신흥 수소충전소",
+    "address": "인천 중구 서해대로94번길 57-33",
+    "status": "운영중",
+    "pressureInfo": "700bar 사용 가능",
+    "distanceKm": 9.25,
+    "waitMinutes": 33,
+    "isRecommended": false,
+    "latitude": 37.43658790,
+    "longitude": 126.62406752
   }
 ]
 """.trimIndent()

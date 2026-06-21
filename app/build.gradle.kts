@@ -35,7 +35,8 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("boolean", "USE_DUMMY_DATA", "true")
+            // 로컬 서버와 실제 통신하기 위해 더미 데이터를 끈다.
+            buildConfigField("boolean", "USE_DUMMY_DATA", "false")
         }
         release {
             isMinifyEnabled = false

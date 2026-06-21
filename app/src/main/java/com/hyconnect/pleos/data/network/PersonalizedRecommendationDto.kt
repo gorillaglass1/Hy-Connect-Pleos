@@ -7,10 +7,12 @@ import com.google.gson.annotations.SerializedName
  *
  * - 충전소 식별자/경로범위/반경은 서버가 내부적으로 계산하므로 클라이언트가 보내지 않는다.
  * - [nlQuery]는 선택 필드다. 자연어 검색은 별도 엔드포인트가 아니라 이 필드로 전달한다(없으면 null → 직렬화 생략).
+ * - [userId]는 로그인 사용자가 없으면 null로 둔다. Gson 기본 설정상 null 필드는 직렬화에서 빠지므로
+ *   "유저 정보 없이 비워서" 요청이 전송된다.
  */
 data class PersonalizedRecommendationRequestDto(
     @SerializedName("user_id")
-    val userId: Int,
+    val userId: Int? = null,
     @SerializedName("current_latitude")
     val currentLatitude: Double,
     @SerializedName("current_longitude")
@@ -64,6 +66,37 @@ data class RecommendedStationResponseDto(
     val recommendationReason: String?,
     @SerializedName("delivery_payload")
     val deliveryPayload: RecommendationDeliveryPayloadDto?,
+)
+
+/**
+ * `POST /recommendations/personalized/delivery-payloads` 응답 항목.
+ *
+ * 이 엔드포인트는 차량/화면에 바로 쓸 수 있도록 이미 정제된 camelCase 필드를 내려준다.
+ * (점수순으로 정렬되어 있고, [isRecommended]가 true인 1위 항목이 대표 추천이다.)
+ * UI 모델 [com.hyconnect.pleos.data.model.HydrogenStation]과 필드 구성이 거의 같지만,
+ * 네트워크 계약과 UI 모델을 분리해 두기 위해 별도 DTO로 받는다.
+ */
+data class DeliveryStationDto(
+    @SerializedName("id")
+    val id: String,
+    @SerializedName("name")
+    val name: String,
+    @SerializedName("address")
+    val address: String?,
+    @SerializedName("status")
+    val status: String?,
+    @SerializedName("pressureInfo")
+    val pressureInfo: String?,
+    @SerializedName("distanceKm")
+    val distanceKm: Double?,
+    @SerializedName("waitMinutes")
+    val waitMinutes: Int?,
+    @SerializedName("isRecommended")
+    val isRecommended: Boolean = false,
+    @SerializedName("latitude")
+    val latitude: Double?,
+    @SerializedName("longitude")
+    val longitude: Double?,
 )
 
 data class SubScoresDto(

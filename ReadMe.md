@@ -53,6 +53,20 @@
 
 참고: `installDebug`는 에뮬레이터가 실행 중이고 기기가 정상 연결된 상태여야 합니다.
 
+### 서버 주소 설정 (ServerConfig.kt)
+- 통신 대상 서버 주소는 `app/src/main/java/com/hyconnect/pleos/data/network/ServerConfig.kt` **한 파일**에서 관리합니다.
+- 이 파일은 로컬 환경마다 값이 달라 `.gitignore`로 제외되어 있으므로 **저장소에 포함되지 않습니다.** 새로 클론한 환경에서는 직접 만들어야 빌드됩니다.
+- 아래 내용으로 파일을 생성하고 `BASE_URL`만 환경에 맞게 수정하세요 (Retrofit 규칙상 반드시 `/`로 끝나야 함):
+  ```kotlin
+  package com.hyconnect.pleos.data.network
+
+  object ServerConfig {
+      // 에뮬레이터에서 호스트 PC의 localhost는 10.0.2.2로 접근한다.
+      // 실기기에서 같은 PC 서버에 붙으려면 PC의 LAN IP(예: http://192.168.0.10:8000/)로 바꾼다.
+      const val BASE_URL: String = "http://10.0.2.2:8000/"
+  }
+  ```
+
 ### 더미 데이터 전환
 - `debug` 빌드는 `BuildConfig.USE_DUMMY_DATA = true`로 동작하며, 서버나 Pleos SDK 승인 없이 화면을 확인할 수 있습니다.
 - `release` 빌드는 `BuildConfig.USE_DUMMY_DATA = false`로 동작하며, `ApiClient`의 실제 API를 사용합니다.

@@ -19,7 +19,7 @@ interface HyConnectService {
     @POST("recommendations/personalized/delivery-payloads")
     suspend fun getRecommendationDeliveryPayloads(
         @Body request: PersonalizedRecommendationRequestDto,
-    ): List<RecommendationDeliveryPayloadDto>
+    ): List<DeliveryStationDto>
 
     @POST("users/{user_id}/preferences/learn")
     suspend fun learnFromSelection(
