@@ -171,7 +171,8 @@ class HyConnectRepositoryImpl(
         userId: Int? = this.userId,
     ): List<DeliveryStationDto> {
         val location = CurrentLocationStore.snapshot()
-        val destination = DestinationStore.snapshot()
+        // 저장소에 (0,0) 같은 빈 목적지가 남아 있어도 요청에 0이 새지 않도록 실좌표만 채택한다.
+        val destination = DestinationStore.snapshot()?.takeIf { it.hasRealCoordinates() }
         return service.getRecommendationDeliveryPayloads(
             PersonalizedRecommendationRequestDto(
                 userId = userId,

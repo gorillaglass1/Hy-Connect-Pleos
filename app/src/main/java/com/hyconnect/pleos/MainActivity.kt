@@ -13,20 +13,42 @@ import com.hyconnect.pleos.navigation.NavigationResult
 import com.hyconnect.pleos.navigation.PleosNaviHelperNavigationClient
 import com.hyconnect.pleos.ui.HyConnectScreen
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
+import com.hyconnect.pleos.vehicle.RangeRemainingTrigger
+import com.hyconnect.pleos.vehicle.VehicleSdkClient
 import com.hyconnect.pleos.viewmodel.HyConnectViewModel
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private val navigationClient: PleosNaviHelperNavigationClient by lazy {
         PleosNaviHelperNavigationClient(this)
     }
 
+    private val vehicleSdkClient: VehicleSdkClient by lazy {
+        VehicleSdkClient(this)
+    }
+
     private val viewModel: HyConnectViewModel by viewModels {
         HyConnectViewModel.Factory((application as HyConnectApplication).repository)
+    }
+
+    // Vehicle SDK에서 받은 주행가능거리/주행상태를 정책에 따라 ViewModel로 전달한다.
+    private val rangeTrigger: RangeRemainingTrigger by lazy {
+        RangeRemainingTrigger(
+            lowRangeThresholdKm = HyConnectViewModel.LOW_RANGE_THRESHOLD_KM,
+            // 주행 여부와 무관하게 모든 통지를 ViewModel로 보낸다.
+            // 임계값 이하이면 ViewModel이 즉시 LOW(충전소 추천 화면)로 전환한다.
+            onRangeUpdated = { rangeKm, _ -> viewModel.onVehicleRangeUpdated(rangeKm.roundToInt()) },
+            // 화면 전환은 onRangeUpdated가 담당하므로 아래 두 콜백은 로그/음성 안내 슬롯으로만 둔다.
+            onDrivingAndLow = { rangeKm -> Log.d("HyConnect", "주행 중 충전 필요: ${rangeKm}km") },
+            onStoppedAndLow = { rangeKm -> Log.d("HyConnect", "정차 중 충전 필요: ${rangeKm}km") },
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         navigationClient.initialize()
+        vehicleSdkClient.initialize()
+        vehicleSdkClient.registerListeners(rangeTrigger)
         // Navi 앱이 비동기로 통지하는 경유지 추가 결과/오류를 사용자에게 보여준다.
         navigationClient.onNaviEvent = { result ->
             when (result) {
@@ -72,6 +94,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         navigationClient.release()
+        vehicleSdkClient.unregisterListeners()
+        vehicleSdkClient.release()
         super.onDestroy()
     }
 

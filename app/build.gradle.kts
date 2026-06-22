@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.kotlinx.coroutines.android)
     implementation("ai.pleos.playground:NaviHelper:2.0.3")
+    implementation("ai.pleos.playground:Vehicle:2.0.3")
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.espresso.core)

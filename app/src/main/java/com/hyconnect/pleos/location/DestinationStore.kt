@@ -14,7 +14,15 @@ data class Destination(
     val latitude: Double,
     val longitude: Double,
     val name: String? = null,
-)
+) {
+    /**
+     * 추천 요청에 실어 보낼 수 있는 실좌표인지. (0,0)·NaN·무한대는 "목적지 없음"으로 본다.
+     * 경로 안내 중이 아닐 때 NaviHelper가 통지하는 (0,0) 빈 목적지가 요청에 새지 않도록
+     * 요청을 만드는 쪽(Repository)에서도 한 번 더 거른다.
+     */
+    fun hasRealCoordinates(): Boolean =
+        latitude.isFinite() && longitude.isFinite() && !(latitude == 0.0 && longitude == 0.0)
+}
 
 object DestinationStore {
     @Volatile

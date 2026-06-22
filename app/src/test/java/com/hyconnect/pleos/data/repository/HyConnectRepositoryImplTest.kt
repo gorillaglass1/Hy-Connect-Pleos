@@ -2,11 +2,14 @@ package com.hyconnect.pleos.data.repository
 
 import com.hyconnect.pleos.data.network.HyConnectService
 import com.hyconnect.pleos.data.network.NetworkResult
+import com.hyconnect.pleos.location.Destination
+import com.hyconnect.pleos.location.DestinationStore
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -29,11 +32,14 @@ class HyConnectRepositoryImplTest {
             .create(HyConnectService::class.java)
 
         repository = HyConnectRepositoryImpl(service = service)
+        // DestinationStore는 전역 싱글톤이라 테스트 간 상태가 새지 않도록 비우고 시작한다.
+        DestinationStore.clear()
     }
 
     @After
     fun tearDown() {
         server.shutdown()
+        DestinationStore.clear()
     }
 
     @Test
@@ -63,6 +69,47 @@ class HyConnectRepositoryImplTest {
         val body = request.body.readUtf8()
         assertTrue(body.contains("nl_query"))
         assertTrue(!body.contains("user_id"))
+    }
+
+    @Test
+    fun noDestinationOmitsDestinationCoordinatesFromRequest() = runBlocking {
+        // 목적지가 없으면(경로 안내 중 아님) 목적지 좌표는 본문에서 아예 빠져야 한다. (0이 들어가면 안 됨)
+        DestinationStore.clear()
+        enqueueJson(deliveryJson)
+
+        repository.getNlRecommendedStations(nlQuery = "가까운 충전소", remainingRange = 45)
+
+        val body = server.takeRequest().body.readUtf8()
+        assertFalse(body.contains("destination_latitude"))
+        assertFalse(body.contains("destination_longitude"))
+    }
+
+    @Test
+    fun emptyDestinationCoordinatesAreNotSentAsZero() = runBlocking {
+        // 저장소에 (0,0) 빈 목적지가 남아 있어도 요청에 0이 새지 않아야 한다(요청 경계 방어).
+        DestinationStore.update(Destination(latitude = 0.0, longitude = 0.0))
+        enqueueJson(deliveryJson)
+
+        repository.getNlRecommendedStations(nlQuery = "가까운 충전소", remainingRange = 45)
+
+        val body = server.takeRequest().body.readUtf8()
+        assertFalse(body.contains("destination_latitude"))
+        assertFalse(body.contains("destination_longitude"))
+    }
+
+    @Test
+    fun realDestinationCoordinatesAreSentInRequest() = runBlocking {
+        // 실제 목적지가 있으면 좌표가 본문에 포함돼야 한다.
+        DestinationStore.update(Destination(latitude = 37.5012, longitude = 127.0396))
+        enqueueJson(deliveryJson)
+
+        repository.getNlRecommendedStations(nlQuery = "경로상 충전소", remainingRange = 45)
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("destination_latitude"))
+        assertTrue(body.contains("37.5012"))
+        assertTrue(body.contains("destination_longitude"))
+        assertTrue(body.contains("127.0396"))
     }
 
     @Test
