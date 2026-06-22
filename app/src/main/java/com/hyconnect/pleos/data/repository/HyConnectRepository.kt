@@ -16,6 +16,7 @@ import com.hyconnect.pleos.data.network.PersonalizedRecommendationRequestDto
 import com.hyconnect.pleos.data.network.PreferenceLearningRequestDto
 import com.hyconnect.pleos.data.network.UserPreferenceResponseDto
 import com.hyconnect.pleos.location.CurrentLocationStore
+import com.hyconnect.pleos.location.DestinationStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -71,9 +72,8 @@ class HyConnectRepositoryImpl(
     private val defaultLat: Double = 37.405
     private val defaultLng: Double = 126.721
 
-    // TODO: 추후 Pleos NaviHelper SDK getDestinationInfo()로 실제 목적지 좌표를 채운다.
-    private val destinationLat: Double = 37.46
-    private val destinationLng: Double = 126.45
+    // 목적지는 NaviHelper onDestinationInfo → DestinationStore로 갱신된다.
+    // 경로 안내 중이 아니면 비어 있으며(null), 이때는 목적지 없이 요청한다.
 
     override suspend fun getVehicleState(): NetworkResult<VehicleState> = safeApiCall {
         // 서버에는 차량 테이블이 없다. 연료/주행가능거리는 클라이언트 입력값이다.
@@ -171,13 +171,15 @@ class HyConnectRepositoryImpl(
         userId: Int? = this.userId,
     ): List<DeliveryStationDto> {
         val location = CurrentLocationStore.snapshot()
+        val destination = DestinationStore.snapshot()
         return service.getRecommendationDeliveryPayloads(
             PersonalizedRecommendationRequestDto(
                 userId = userId,
                 currentLatitude = location?.latitude ?: defaultLat,
                 currentLongitude = location?.longitude ?: defaultLng,
-                destinationLatitude = destinationLat,
-                destinationLongitude = destinationLng,
+                // 목적지가 없으면 두 값 모두 null → 본문에서 생략되어 현재 위치 근처 추천을 받는다.
+                destinationLatitude = destination?.latitude,
+                destinationLongitude = destination?.longitude,
                 remainingRange = remainingRange,
                 nlQuery = nlQuery,
             ),

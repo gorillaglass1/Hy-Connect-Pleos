@@ -6,6 +6,7 @@ import ai.pleos.playground.navi.constants.NaviErrorCode
 import ai.pleos.playground.navi.constants.RouteDriving
 import ai.pleos.playground.navi.constants.WaypointIndex
 import ai.pleos.playground.navi.data.CurrentLocationInfo
+import ai.pleos.playground.navi.data.DestinationInfo
 import ai.pleos.playground.navi.data.RequestWaypointInfo
 import ai.pleos.playground.navi.data.RouteInfo
 import ai.pleos.playground.navi.data.RouteStartInfo
@@ -16,6 +17,8 @@ import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.location.CurrentLocation
 import com.hyconnect.pleos.location.CurrentLocationStore
+import com.hyconnect.pleos.location.Destination
+import com.hyconnect.pleos.location.DestinationStore
 
 /**
  * Pleos NaviHelper SDK로 충전소까지 경로를 시작하거나 경유지로 추가한다.
@@ -52,10 +55,13 @@ class PleosNaviHelperNavigationClient(
 
         override fun onRouteEnded() {
             isRouting = false
+            // 경로가 끝나면 목적지가 없어지므로 비운다. (이후 추천은 현재 위치 기준)
+            DestinationStore.clear()
         }
 
         override fun onRouteCancelled() {
             isRouting = false
+            DestinationStore.clear()
         }
 
         override fun onNavigationStatus(status: RouteDriving) {
@@ -79,6 +85,23 @@ class PleosNaviHelperNavigationClient(
             )
         }
 
+        override fun onDestinationInfo(destinationInfo: DestinationInfo) {
+            // 충전소 추천 요청의 destination_latitude/longitude로 사용된다. (DestinationStore 경유)
+            Log.d("HyConnect", "onDestinationInfo $destinationInfo")
+            DestinationStore.update(
+                Destination(
+                    latitude = destinationInfo.latitude,
+                    longitude = destinationInfo.longitude,
+                    name = destinationInfo.name,
+                ),
+            )
+        }
+
+        override fun onDestinationChanged() {
+            // 목적지가 바뀌면 최신 목적지를 다시 받아 DestinationStore를 갱신한다.
+            runCatching { naviHelper.getDestinationInfo() }
+        }
+
         override fun onWaypointChanged(waypointChangedInfo: WaypointChangedInfo) {
             onNaviEvent?.invoke(NavigationResult.WaypointAdded("경유지"))
         }
@@ -96,6 +119,8 @@ class PleosNaviHelperNavigationClient(
         runCatching { naviHelper.getRouteStateInfo() }
         // 현재 위치를 미리 받아 둔다. (onCurrentLocationInfo로 통지 → CurrentLocationStore 갱신)
         runCatching { naviHelper.getCurrentLocationInfo() }
+        // 현재 목적지를 미리 받아 둔다. (onDestinationInfo로 통지 → DestinationStore 갱신, 없으면 비어 있음)
+        runCatching { naviHelper.getDestinationInfo() }
     }
 
     /** 최신 현재 위치를 다시 요청한다. (결과는 onCurrentLocationInfo 콜백으로 통지) */

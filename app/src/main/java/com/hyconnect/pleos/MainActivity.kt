@@ -56,9 +56,6 @@ class MainActivity : ComponentActivity() {
                         // TODO: 추후 Gleo AI SDK SpeechToText로 교체.
                         showPrototypeAction("음성 호출은 프로토타입 Toast로 동작합니다.")
                     },
-                    onSettingsClick = {
-                        showPrototypeAction("설정 화면은 프로토타입 범위에서 제외되었습니다.")
-                    },
                     onQueryChange = viewModel::updateNlQuery,
                     onSearch = viewModel::searchStations,
                     onAddWaypoint = { station ->

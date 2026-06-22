@@ -4,18 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,15 +30,12 @@ import com.hyconnect.pleos.ui.components.HydrogenTankCard
 import com.hyconnect.pleos.ui.components.LowFuelBanner
 import com.hyconnect.pleos.ui.components.NlQueryBar
 import com.hyconnect.pleos.ui.components.StationListCard
-import com.hyconnect.pleos.ui.components.VoiceCallButton
 import com.hyconnect.pleos.ui.components.WaypointConfirmDialog
 import com.hyconnect.pleos.ui.theme.HyBackground
 import com.hyconnect.pleos.ui.theme.HyBlue
 import com.hyconnect.pleos.ui.theme.HyBorder
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.ui.theme.HySurface
-import com.hyconnect.pleos.ui.theme.HyTextPrimary
-import com.hyconnect.pleos.ui.theme.HyTextSecondary
 import com.hyconnect.pleos.viewmodel.FuelMode
 import com.hyconnect.pleos.viewmodel.HyConnectUiState
 
@@ -51,7 +43,6 @@ import com.hyconnect.pleos.viewmodel.HyConnectUiState
 fun HyConnectScreen(
     uiState: HyConnectUiState,
     onVoiceCallClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
     onAddWaypoint: (HydrogenStation) -> Unit,
@@ -77,11 +68,7 @@ fun HyConnectScreen(
                 .border(1.dp, HyBorder, RoundedCornerShape(24.dp))
                 .padding(24.dp),
         ) {
-            Header(
-                isLoading = uiState.isLoading,
-                onVoiceCallClick = onVoiceCallClick,
-                onSettingsClick = onSettingsClick,
-            )
+            Header()
             Spacer(modifier = Modifier.height(16.dp))
             HydrogenTankCard(vehicleState = uiState.vehicleState)
             Spacer(modifier = Modifier.height(14.dp))
@@ -151,55 +138,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.LowFuelContent(
 }
 
 @Composable
-private fun Header(
-    isLoading: Boolean,
-    onVoiceCallClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "HyConnect",
-                color = HyBlue,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(5.dp))
-            Text(
-                text = "하이커넥트",
-                color = HyTextPrimary,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.ExtraBold,
-                lineHeight = 38.sp,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (isLoading) "차량과 충전소 데이터를 동기화하고 있습니다." else "수소 충전까지 스마트한 파트너입니다.",
-                color = HyTextSecondary,
-                fontSize = 17.sp,
-            )
-        }
-
-        VoiceCallButton(onClick = onVoiceCallClick)
-        Spacer(modifier = Modifier.width(10.dp))
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier
-                .size(52.dp)
-                .background(HyBackground, CircleShape)
-                .border(1.dp, HyBorder, CircleShape),
-        ) {
-            Text(
-                text = "설정",
-                color = HyTextPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-    }
+private fun Header() {
+    Text(
+        text = "HyConnect",
+        color = HyBlue,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+    )
 }
 
 @Preview(showBackground = true, widthDp = 1180, heightDp = 840)
@@ -220,7 +165,6 @@ private fun HyConnectScreenLowPreview() {
                 isLoading = false,
             ),
             onVoiceCallClick = {},
-            onSettingsClick = {},
             onQueryChange = {},
             onSearch = {},
             onAddWaypoint = {},
@@ -245,7 +189,6 @@ private fun HyConnectScreenSufficientPreview() {
                 isLoading = false,
             ),
             onVoiceCallClick = {},
-            onSettingsClick = {},
             onQueryChange = {},
             onSearch = {},
             onAddWaypoint = {},

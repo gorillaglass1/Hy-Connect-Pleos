@@ -17,10 +17,12 @@ data class PersonalizedRecommendationRequestDto(
     val currentLatitude: Double,
     @SerializedName("current_longitude")
     val currentLongitude: Double,
+    // 목적지가 없으면(경로 안내 중이 아니면) 두 값 모두 null로 두어 본문에서 생략한다.
+    // 서버는 위/경도를 모두 생략하면 현재 위치 근처 충전소를 추천한다. (한쪽만 보내면 거부)
     @SerializedName("destination_latitude")
-    val destinationLatitude: Double,
+    val destinationLatitude: Double? = null,
     @SerializedName("destination_longitude")
-    val destinationLongitude: Double,
+    val destinationLongitude: Double? = null,
     @SerializedName("remaining_range")
     val remainingRange: Double,
     @SerializedName("nl_query")
