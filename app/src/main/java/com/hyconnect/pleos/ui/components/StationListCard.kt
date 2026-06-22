@@ -97,16 +97,6 @@ fun StationListCard(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        Text(
-            text = "더보기",
-            color = HyBlue,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .clickable(onClick = onMoreClick)
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-        )
     }
 }
 

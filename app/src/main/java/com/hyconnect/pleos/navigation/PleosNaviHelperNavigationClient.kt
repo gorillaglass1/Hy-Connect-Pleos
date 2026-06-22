@@ -88,6 +88,11 @@ class PleosNaviHelperNavigationClient(
         override fun onDestinationInfo(destinationInfo: DestinationInfo) {
             // 충전소 추천 요청의 destination_latitude/longitude로 사용된다. (DestinationStore 경유)
             Log.d("HyConnect", "onDestinationInfo $destinationInfo")
+            // 경로 안내 중이 아니면 목적지가 (0,0) 빈 값으로 통지된다 → 목적지 없음으로 처리(비움).
+            if (!isValidDestination(destinationInfo.latitude, destinationInfo.longitude)) {
+                DestinationStore.clear()
+                return
+            }
             DestinationStore.update(
                 Destination(
                     latitude = destinationInfo.latitude,
@@ -188,6 +193,16 @@ class PleosNaviHelperNavigationClient(
             Log.w("HyConnect", "NaviHelper 경로 시작 실패, geo 폴백으로 전환", e)
             fallback.startRouteGuidance(station)
         }
+    }
+
+    /**
+     * 목적지 좌표가 실제 유효한지 판정한다.
+     * 경로 안내 중이 아니면 NaviHelper가 (0,0) 빈 목적지를 통지하므로, 이를 "목적지 없음"으로 거른다.
+     */
+    private fun isValidDestination(lat: Double, lng: Double): Boolean {
+        if (lat.isNaN() || lng.isNaN() || lat.isInfinite() || lng.isInfinite()) return false
+        if (lat == 0.0 && lng == 0.0) return false
+        return lat in KOREA_LAT_RANGE && lng in KOREA_LNG_RANGE
     }
 
     /** 잘못된 좌표/필드를 전송 전에 걸러낸다. 문제가 없으면 null을 반환한다. */
