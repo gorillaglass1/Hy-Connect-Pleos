@@ -76,6 +76,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation("ai.pleos.playground:NaviHelper:2.0.3")
     implementation("ai.pleos.playground:Vehicle:2.0.3")
+    // Gleo AI 음성 안내(TTS)·음성 입력(STT). 정책상 OnDevice 모드만 사용한다.
+    implementation("ai.pleos.playground:TextToSpeech:2.1.5.1")
+    implementation("ai.pleos.playground:SpeechToText:2.1.3.2")
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.espresso.core)

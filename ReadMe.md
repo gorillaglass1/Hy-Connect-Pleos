@@ -77,6 +77,60 @@
 - Pleos 문서 기준 별도 인증 흐름 없이 `ai.pleos.playground:NaviHelper:2.0.3` 의존성과 `pleos.car.permission.NAVI_ROUTE`, `pleos.car.permission.NAVI_ROUTE_SEARCH` 등 매니페스트 권한으로 연동합니다.
 - NaviHelper 호출이 실패하는 환경에서는 Android `geo:` 인텐트 폴백으로 충전소 위치를 열어 화면 검증을 이어갈 수 있습니다.
 
+### 음성 안내·음성 입력 (Gleo AI TTS/STT)
+- 충전소 추천 시/선택 시 음성 안내를 출력하고(`VoiceGuideClient`), 마이크 버튼으로 자연어 음성 입력을 받습니다(`VoiceInputClient`).
+- 정책상 **OnDevice 모드만** 사용합니다(`ai.pleos.playground:TextToSpeech`, `ai.pleos.playground:SpeechToText`). OnDevice는 `registerApp`(서버 인증)이 필요 없습니다.
+- 음성은 **Pleos Connect 에뮬레이터**(또는 실차)에서만 실제로 동작합니다. 일반 AVD에서는 SDK 호출이 조용히 무시(no-op)되고 앱은 정상 동작합니다.
+
+#### Pleos Connect 에뮬레이터에서 음성 사용하기
+1. **시스템 이미지/AVD**: `Pleos Connect v2.0`(API 34) 이미지로 Automotive AVD를 만들고, 고급 설정에서 **Boot option = Cold boot**, Graphics = Hardware로 둡니다(차량 SDK와 동일).
+2. **마이크 입력 허용(STT용)**: 에뮬레이터 우측 `...`(Extended Controls) → **Microphone** → "Virtual microphone uses host audio input"을 켭니다. macOS는 시스템 설정에서 에뮬레이터(qemu)의 마이크 권한도 허용해야 합니다.
+3. **CRN 주입**: Pleos Playground > My Project > Project Info > **Test Info**에서 CRN을 복사한 뒤 주입합니다. CRN이 있어야 음성 서비스·차량 VHAL이 동작합니다. CRN은 비밀값이라 커밋하지 않습니다.
+   ```bash
+   # 방법 A: 인자로 전달
+   scripts/inject-crn.sh --crn <복사한_CRN>
+   # 방법 B: local.properties에 PLEOS_CRN=<CRN> 한 줄 추가 후
+   scripts/inject-crn.sh
+   ```
+   스크립트는 내부적으로 다음을 수행합니다(에뮬레이터가 실행 중이어야 함):
+   ```bash
+   adb root
+   adb shell su 0 "echo 'propId: 554696961 areaId: 0 values: <CRN>' > /data/vendor/vsomeip/vhal_fifo"
+   adb reboot
+   ```
+4. 재부팅이 끝나면 `./gradlew installDebug`로 앱을 올리고 음성을 확인합니다.
+
+#### 음성 기능 테스트 가이드
+사전 준비: 위 1~4단계(Pleos Connect 에뮬 + CRN 주입 + 앱 설치) 완료, 호스트 스피커/마이크 사용 가능.
+
+**TTS(음성 안내) 테스트**
+1. 앱을 실행한다. 주행가능거리가 임계값(100km) 이하이면 자동으로 충전소 추천(LOW) 화면이 뜬다.
+   - 에뮬에서 거리를 낮추려면 Vehicle VHAL의 `RANGE_REMAINING`을 작게 주입하거나, 추천 화면에서 검색을 실행한다.
+2. 추천 목록이 채워지는 순간 "가장 가까운 곳은 OO충전소, N킬로미터 거리예요" 안내가 **스피커로 재생**된다.
+3. 목록에서 충전소를 탭하면 "OO충전소를 경유지로 추가할까요?" 안내가 재생되고 확인 팝업이 뜬다.
+4. 로그로 확인:
+   ```bash
+   adb logcat -s HyConnect.Tts            # 앱 측: initialize / speak 흐름
+   adb logcat | grep -i "OnDeviceTtsStreamManagerImpl\|writeAudioTrack"  # CaaS 측: 실제 합성/재생
+   ```
+   `writeAudioTrack ... start seoyoon ko_KR` + `AudioTrack ... frames delivered` 가 보이면 정상 재생된 것이다.
+
+**STT(마이크 음성 입력) 테스트**
+1. 추천(LOW) 화면의 검색창 오른쪽 **🎙 마이크 버튼**을 누른다(에뮬 멀티윈도우에서는 `adb input tap`이 불안정하니 직접 클릭 권장).
+2. "듣고 있어요. 말씀해 주세요." 토스트가 뜨면 호스트 마이크에 대고 "제일 가까운 충전소" 같이 말한다.
+   - 에뮬 마이크는 Extended Controls → Microphone에서 "host audio input"이 켜져 있어야 한다.
+3. 인식이 끝나면 그 문장으로 충전소 재검색이 실행되고, 결과에 대해 다시 TTS 안내가 나온다.
+4. 로그로 확인:
+   ```bash
+   adb logcat -s HyConnect.Stt            # initialize / request / 최종 인식 문장
+   adb logcat | grep -i "OnDeviceStt\|recognition"   # CaaS STT 인식 동작
+   ```
+
+**자주 겪는 문제**
+- 소리가 안 남: CRN 미주입(가장 흔함) → `scripts/inject-crn.sh` 재실행 후 재부팅. 호스트 스피커 음소거 확인.
+- `HyConnect.Tts: TTS initialize 실패` 로그: SDK 서비스 미존재(일반 AVD) → Pleos Connect 이미지로 실행.
+- STT가 인식 안 됨: 에뮬 마이크(host audio input) 비활성 또는 macOS 마이크 권한 차단.
+
 ## 5) 현재 MainActivity 코드 설명
 
 파일: `app/src/main/java/com/hyconnect/pleos/MainActivity.kt`
@@ -85,7 +139,7 @@
 - `MainActivity`는 `ComponentActivity`를 상속합니다.
 - `HyConnectViewModel`의 `uiState`를 수집해 Compose 기반 `HyConnectScreen`에 전달합니다.
 - `경유지 추가` 버튼은 `NavigationClient`를 통해 Pleos Navigation에 충전소를 경유지로 추가합니다.
-- 음성 호출, 설정, 더보기는 아직 프로토타입 Toast로 동작합니다.
+- 마이크 버튼은 Gleo AI STT(OnDevice)로 음성 입력을 받아 충전소 검색에 사용합니다. 설정·더보기는 아직 프로토타입 Toast로 동작합니다.
 
 ### 현재 상태
 - `debug` 빌드에서는 더미 차량 상태, AI 추천, 충전소 목록으로 앱을 바로 실행할 수 있습니다.

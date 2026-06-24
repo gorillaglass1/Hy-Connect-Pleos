@@ -10,8 +10,13 @@ import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.NetworkResult
 import com.hyconnect.pleos.data.repository.HyConnectRepository
+import com.hyconnect.pleos.voice.withJosa
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,7 +42,7 @@ data class HyConnectUiState(
     val errorMessage: String? = null,
 ) {
     companion object {
-        const val DEFAULT_NL_QUERY = "제일 가까운 충전소 추천해줘"
+        const val DEFAULT_NL_QUERY = ""
     }
 }
 
@@ -46,6 +51,22 @@ class HyConnectViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HyConnectUiState())
     val uiState: StateFlow<HyConnectUiState> = _uiState.asStateFlow()
+
+    // 음성 안내(TTS) 멘트 1회성 이벤트. Activity가 수집해 VoiceGuideClient.speak로 출력한다.
+    // 화면이 보유하지 않는 Context 의존(SDK)을 ViewModel에서 분리하기 위한 단방향 이벤트 채널이다.
+    private val _voiceEvents = MutableSharedFlow<String>(
+        extraBufferCapacity = 4,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val voiceEvents: SharedFlow<String> = _voiceEvents.asSharedFlow()
+
+    // 추천 직후 "경유지로 추가할까요?"라고 묻고, 음성 답변을 받기 위해 대상 충전소를 Activity에 알린다.
+    // Activity는 안내 TTS가 끝나면 마이크 청취를 시작하고, 긍정 답변이면 터치 없이 경유지를 추가한다.
+    private val _confirmWaypointVoice = MutableSharedFlow<HydrogenStation>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val confirmWaypointVoice: SharedFlow<HydrogenStation> = _confirmWaypointVoice.asSharedFlow()
 
     // Vehicle SDK가 통지한 최신 주행가능거리(km). null이면 아직 통지 전(또는 SDK 비연동 환경).
     // 통지 이후에는 이 값이 차량 상태의 단일 출처가 되어 서버 임시값보다 우선한다.
@@ -144,6 +165,7 @@ class HyConnectViewModel(
                     errorMessage = recResult.errorOrNull(),
                 )
             }
+            announceRecommendation(recommendation)
         }
     }
 
@@ -194,6 +216,7 @@ class HyConnectViewModel(
                     errorMessage = recResult.errorOrNull(),
                 )
             }
+            announceRecommendation(recommendation)
         }
     }
 
@@ -213,6 +236,28 @@ class HyConnectViewModel(
                 Log.w("HyConnect", "preference learning failed: ${result.message}")
             }
         }
+    }
+
+    /**
+     * 사용자가 추천 목록에서 충전소를 선택(탭)했을 때 호출한다.
+     * "~충전소를 경유지로 추가할까요?" 음성 멘트를 내보낸다(경유지 추가 확인 팝업과 함께).
+     */
+    fun announceStationSelection(station: HydrogenStation) {
+        val ment = "${station.name.withJosa("을", "를")} 경유지로 추가할까요?"
+        _voiceEvents.tryEmit(ment)
+    }
+
+    /** 추천 결과가 채워지면 가장 가까운 충전소를 음성으로 안내한다. (driverMessage intro는 읽지 않는다) */
+    private fun announceRecommendation(recommendation: StationRecommendation) {
+        val top = recommendation.stations.firstOrNull() ?: return
+        val rangeKm = _uiState.value.vehicleState.vehicleRangeKm
+        val distance = "%.1f".format(top.distanceKm)
+        _voiceEvents.tryEmit(
+            "주행가능거리 ${rangeKm}킬로미터 남았어요. 충전이 필요해요. 가장 최적의 충전소는 ${top.name}, ${distance}킬로미터 거리예요. " +
+                "경유지로 추가할까요?",
+        )
+        // 안내가 끝나면 음성 답변(응/아니요)을 받도록 대상 충전소를 Activity에 전달한다.
+        _confirmWaypointVoice.tryEmit(top)
     }
 
     fun clearError() {

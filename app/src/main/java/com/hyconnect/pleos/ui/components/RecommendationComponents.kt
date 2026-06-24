@@ -115,7 +115,7 @@ fun NlQueryBar(
             singleLine = true,
             placeholder = {
                 Text(
-                    text = "예) 그냥 제일 가까운 충전소 젭알",
+                    text = "예) 가까운 충전소 추천해줘",
                     color = HyTextMuted,
                     fontSize = 16.sp,
                 )

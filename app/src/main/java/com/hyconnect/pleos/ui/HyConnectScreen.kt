@@ -48,6 +48,7 @@ fun HyConnectScreen(
     onVoiceCallClick: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
+    onStationSelected: (HydrogenStation) -> Unit,
     onAddWaypoint: (HydrogenStation) -> Unit,
     onMoreStationsClick: () -> Unit,
     onRefreshClick: () -> Unit,
@@ -83,7 +84,11 @@ fun HyConnectScreen(
                     onQueryChange = onQueryChange,
                     onSearch = onSearch,
                     onVoiceClick = onVoiceCallClick,
-                    onStationSelect = { pendingStation = it },
+                    onStationSelect = {
+                        // 선택 시 음성 안내("~경유지로 추가할까요?")를 내보내고 확인 팝업을 띄운다.
+                        onStationSelected(it)
+                        pendingStation = it
+                    },
                     onMoreStationsClick = onMoreStationsClick,
                     onRefreshClick = onRefreshClick,
                 )
@@ -181,6 +186,7 @@ private fun HyConnectScreenLowPreview() {
             onVoiceCallClick = {},
             onQueryChange = {},
             onSearch = {},
+            onStationSelected = {},
             onAddWaypoint = {},
             onMoreStationsClick = {},
             onRefreshClick = {},
@@ -207,6 +213,7 @@ private fun HyConnectScreenSufficientPreview() {
             onVoiceCallClick = {},
             onQueryChange = {},
             onSearch = {},
+            onStationSelected = {},
             onAddWaypoint = {},
             onMoreStationsClick = {},
             onRefreshClick = {},
