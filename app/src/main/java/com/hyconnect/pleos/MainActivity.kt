@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hyconnect.pleos.data.model.HydrogenStation
+import com.hyconnect.pleos.data.model.RecommendedStationCard
 import com.hyconnect.pleos.navigation.NavigationResult
 import com.hyconnect.pleos.navigation.PleosNaviHelperNavigationClient
 import com.hyconnect.pleos.ui.HyConnectScreen
@@ -87,6 +88,7 @@ class MainActivity : ComponentActivity() {
                         showPrototypeAction("추천 충전소 더보기는 다음 단계에서 연결합니다.")
                     },
                     onRefreshClick = viewModel::refresh,
+                    onDashboardNavigate = { card -> addWaypoint(card.toHydrogenStation()) },
                 )
             }
         }
@@ -114,6 +116,21 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /** 대시보드 추천 충전소 카드를 내비 경로 안내에 쓸 수 있는 모델로 변환한다. */
+    private fun RecommendedStationCard.toHydrogenStation(): HydrogenStation =
+        HydrogenStation(
+            id = stationId,
+            name = name,
+            address = address,
+            status = if (isOpen) "영업 중" else "영업 종료",
+            pressureInfo = "",
+            distanceKm = distanceKm,
+            waitMinutes = etaMinutes,
+            isRecommended = true,
+            latitude = latitude,
+            longitude = longitude,
+        )
 
     private fun showPrototypeAction(message: String) {
         Log.d("HyConnect", message)

@@ -9,14 +9,18 @@ data class VehicleState(
     val vehicleRangeKm: Int = 0,
     @SerializedName("message")
     val message: String = "차량 상태를 불러오는 중입니다.",
+    // 서버(또는 대시보드)가 연료 잔량(%)을 직접 내려준 경우의 값. null이면 주행거리에서 환산한다.
+    @SerializedName("fuel_percent")
+    val fuelPercent: Int? = null,
 ) {
     /**
-     * 게이지(%) 표시용. 주행가능거리를 완충 기준거리([FULL_RANGE_KM]) 대비 비율로 환산한다.
-     * 수소 탱크 레벨 API가 없어 별도 입력값 없이 주행가능거리에서 파생한다.
-     * %의 단일 출처이므로 [FULL_RANGE_KM]만 바꾸면 모든 화면의 게이지가 함께 갱신된다.
+     * 게이지(%) 표시용.
+     * 서버가 [fuelPercent]를 직접 주면 그 값을 그대로 쓰고(권위 있는 단일 출처),
+     * 없을 때만 주행가능거리를 완충 기준거리([FULL_RANGE_KM]) 대비 비율로 환산한다.
      */
     val hydrogenPercent: Int
-        get() = ((vehicleRangeKm.toFloat() / FULL_RANGE_KM) * 100f).roundToInt().coerceIn(0, 100)
+        get() = (fuelPercent ?: ((vehicleRangeKm.toFloat() / FULL_RANGE_KM) * 100f).roundToInt())
+            .coerceIn(0, 100)
 
     companion object {
         /**

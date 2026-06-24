@@ -1,12 +1,78 @@
 package com.hyconnect.pleos.data.repository
 
+import com.hyconnect.pleos.data.model.AiInsight
+import com.hyconnect.pleos.data.model.DashboardAction
+import com.hyconnect.pleos.data.model.DashboardActionStyle
+import com.hyconnect.pleos.data.model.DashboardActionType
+import com.hyconnect.pleos.data.model.DashboardVehicle
+import com.hyconnect.pleos.data.model.FuelStatus
 import com.hyconnect.pleos.data.model.HydrogenStation
+import com.hyconnect.pleos.data.model.InsightMetric
+import com.hyconnect.pleos.data.model.MetricTone
+import com.hyconnect.pleos.data.model.RecommendedStationCard
+import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
 
 object DummyHyConnectData {
+    // 테스트용: 주행거리 500km(>임계값 100) + 잔량 83% → SUFFICIENT 모드로 진입해 연료 충분 대시보드를 보여준다.
+    // LOW(충전소 추천) 화면을 테스트하려면 vehicleRangeKm를 100 이하로 내린다.
     val vehicleState = VehicleState(
-        vehicleRangeKm = 100,
-        message = "현재 경로 기준 충전 없이 약 1시간 40분 주행할 수 있습니다.",
+        vehicleRangeKm = 500,
+        fuelPercent = 83,
+        message = "현재 경로 기준 충전 없이 약 5시간 주행할 수 있습니다.",
+    )
+
+    /** 서버 미연동 시 연료 충분 화면 검증용 데모 대시보드(예시 JSON과 동일 구성). */
+    val sufficientDashboard = SufficientDashboard(
+        vehicle = DashboardVehicle(
+            fuelType = "hydrogen",
+            fuelPercent = 83,
+            rangeKm = 500,
+        ),
+        aiInsight = AiInsight(
+            updatedAt = "2026-06-24T14:30:00+09:00",
+            status = FuelStatus.SUFFICIENT,
+            statusLabel = "수소 잔량 충분",
+            subtitle = "지금 충전이 급하지 않아요",
+            message = "현재 주행 패턴이라면 약 500km 더 주행할 수 있어요. 충전은 급하지 않으니, " +
+                "이동 경로상 가장 저렴한 충전소를 미리 봐 두는 걸 추천해요.",
+            metrics = listOf(
+                InsightMetric(label = "주행 가능 거리", value = "500", unit = "km", tone = MetricTone.NEUTRAL),
+                InsightMetric(label = "권장 충전 시점", value = "약 2시간 후", unit = null, tone = MetricTone.NEUTRAL),
+                InsightMetric(label = "평균 소모율", value = "정상", unit = null, tone = MetricTone.POSITIVE),
+            ),
+        ),
+        recommendedStation = RecommendedStationCard(
+            stationId = "ST_SANGAM_001",
+            name = "상암 수소충전소",
+            address = "서울 마포구 상암동",
+            badge = "근처 최저가",
+            realtimePrice = true,
+            distanceKm = 2.4,
+            etaMinutes = 8,
+            isOpen = true,
+            waitingVehicles = 1,
+            available = true,
+            pricePerKg = 8250,
+            priceDiffFromAvg = -430,
+            estimatedCost = 41200,
+            latitude = 37.5791,
+            longitude = 126.8895,
+        ),
+        actions = listOf(
+            DashboardAction(
+                type = DashboardActionType.NAVIGATE,
+                label = "경로 안내 시작",
+                style = DashboardActionStyle.PRIMARY,
+                stationId = "ST_SANGAM_001",
+            ),
+            DashboardAction(
+                type = DashboardActionType.VIEW_MORE,
+                label = "다른 충전소 보기",
+                style = DashboardActionStyle.SECONDARY,
+                stationId = null,
+            ),
+        ),
     )
 
     val recommendedStations = listOf(

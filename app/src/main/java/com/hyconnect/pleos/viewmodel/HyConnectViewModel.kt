@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.StationRecommendation
+import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.NetworkResult
 import com.hyconnect.pleos.data.repository.HyConnectRepository
@@ -28,6 +29,8 @@ data class HyConnectUiState(
     val vehicleState: VehicleState = VehicleState(),
     val fuelMode: FuelMode = FuelMode.SUFFICIENT,
     val stations: List<HydrogenStation> = emptyList(),
+    // 연료 충분 화면(SUFFICIENT)의 서버 드리븐 대시보드. 아직 로드 전이면 null.
+    val dashboard: SufficientDashboard? = null,
     val nlQuery: String = DEFAULT_NL_QUERY,
     val driverMessage: String? = null,
     val isLoading: Boolean = true,
@@ -65,8 +68,8 @@ class HyConnectViewModel(
 
         _uiState.update {
             it.copy(
-                // hydrogenPercent는 VehicleState가 vehicleRangeKm에서 파생한다.
-                vehicleState = it.vehicleState.copy(vehicleRangeKm = rangeKm),
+                // SDK 실거리 통지 시엔 주행거리 환산값을 쓴다(서버가 줬던 fuelPercent는 무효화).
+                vehicleState = it.vehicleState.copy(vehicleRangeKm = rangeKm, fuelPercent = null),
                 fuelMode = mode,
             )
         }
@@ -78,8 +81,13 @@ class HyConnectViewModel(
                     loadRecommendations()
                 }
 
-            FuelMode.SUFFICIENT ->
+            FuelMode.SUFFICIENT -> {
                 _uiState.update { it.copy(stations = emptyList(), driverMessage = null) }
+                // 충분 모드로 (재)진입하거나 아직 대시보드가 없을 때만 불러온다.
+                if (previousMode != FuelMode.SUFFICIENT || _uiState.value.dashboard == null) {
+                    loadSufficientDashboard()
+                }
+            }
         }
     }
 
@@ -110,9 +118,8 @@ class HyConnectViewModel(
                 loadRecommendations()
             } else {
                 Log.d("HyConnect", "SUFFICIENT fuel mode")
-                _uiState.update {
-                    it.copy(stations = emptyList(), driverMessage = null, isLoading = false)
-                }
+                _uiState.update { it.copy(stations = emptyList(), driverMessage = null) }
+                loadSufficientDashboard()
             }
         }
     }
@@ -135,6 +142,34 @@ class HyConnectViewModel(
                     driverMessage = recommendation.driverMessage,
                     isLoading = false,
                     errorMessage = recResult.errorOrNull(),
+                )
+            }
+        }
+    }
+
+    /** 연료 충분 화면의 서버 드리븐 대시보드를 불러온다. 서버 fuelPercent로 헤더 게이지도 맞춘다. */
+    private fun loadSufficientDashboard() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val result = repository.getSufficientDashboard()
+            val dashboard = result.dataOrFallback(_uiState.value.dashboard)
+            Log.d("HyConnect", "SUFFICIENT dashboard loaded=${dashboard != null}")
+            _uiState.update { state ->
+                // 서버가 준 연료 잔량(%)을 헤더 게이지의 권위 값으로 사용한다(주행거리 환산 우회).
+                val vehicle = dashboard?.vehicle
+                val vehicleState = if (vehicle != null) {
+                    state.vehicleState.copy(
+                        vehicleRangeKm = vehicle.rangeKm,
+                        fuelPercent = vehicle.fuelPercent,
+                    )
+                } else {
+                    state.vehicleState
+                }
+                state.copy(
+                    dashboard = dashboard,
+                    vehicleState = vehicleState,
+                    isLoading = false,
+                    errorMessage = result.errorOrNull(),
                 )
             }
         }

@@ -3,8 +3,10 @@ package com.hyconnect.pleos.data.repository
 import android.util.Log
 import com.google.gson.JsonParseException
 import com.hyconnect.pleos.data.mapper.toStationRecommendationFromDelivery
+import com.hyconnect.pleos.data.mapper.toSufficientDashboard
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.StationRecommendation
+import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.ChargingLogRequestDto
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
@@ -23,6 +25,9 @@ import java.io.IOException
 
 interface HyConnectRepository {
     suspend fun getVehicleState(): NetworkResult<VehicleState>
+
+    /** 연료 충분 화면(battery_sufficient)의 서버 드리븐 대시보드 데이터를 가져온다. */
+    suspend fun getSufficientDashboard(): NetworkResult<SufficientDashboard>
 
     /**
      * 주행가능거리가 임계값 이하일 때 자연어 질의로 충전소 추천을 받는다.
@@ -75,10 +80,31 @@ class HyConnectRepositoryImpl(
     override suspend fun getVehicleState(): NetworkResult<VehicleState> = safeApiCall {
         // 서버에는 차량 테이블이 없다. 연료/주행가능거리는 클라이언트 입력값이다.
         // TODO: Pleos Vehicle SDK가 연동되면 실제 차량 상태로 교체한다.
+        // 테스트용 기본값: 주행거리 500km(>임계값 100) → SUFFICIENT 모드 → 연료 충분 대시보드가 뜬다.
+        //   LOW(충전소 추천) 화면을 테스트하려면 vehicleRangeKm를 100 이하로 내린다.
         VehicleState(
-            vehicleRangeKm = 96,
+            vehicleRangeKm = 500,
+            fuelPercent = 83,
             message = "차량 SDK 연동 전까지 임시 차량 상태를 사용합니다.",
         )
+    }
+
+    override suspend fun getSufficientDashboard(): NetworkResult<SufficientDashboard> = safeApiCall {
+        runCatching {
+            val location = CurrentLocationStore.snapshot()
+            service.getSufficientDashboard(
+                PersonalizedRecommendationRequestDto(
+                    userId = userId,
+                    currentLatitude = location?.latitude ?: defaultLat,
+                    currentLongitude = location?.longitude ?: defaultLng,
+                    remainingRange = DEFAULT_FULL_RANGE_KM,
+                ),
+            ).toSufficientDashboard()
+        }.getOrElse {
+            Log.w("HyConnect", "sufficient dashboard failed, fallback to demo", it)
+            // 서버 미연동/오프라인에서도 화면 검증이 가능하도록 데모 대시보드를 제공한다.
+            DummyHyConnectData.sufficientDashboard
+        }
     }
 
     override suspend fun getNlRecommendedStations(
@@ -182,6 +208,10 @@ class HyConnectRepositoryImpl(
             }
         }
 
+    private companion object {
+        // 연료 충분 화면 요청 시 보낼 기준 주행거리(km). 서버는 이 값으로 가까운 충전소를 추린다.
+        const val DEFAULT_FULL_RANGE_KM = 500.0
+    }
 }
 
 private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendation =

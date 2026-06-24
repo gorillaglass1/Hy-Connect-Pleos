@@ -1,6 +1,7 @@
 package com.hyconnect.pleos.data.repository
 
 import com.hyconnect.pleos.data.model.StationRecommendation
+import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
 import com.hyconnect.pleos.data.network.NetworkResult
@@ -12,6 +13,9 @@ import kotlinx.coroutines.withContext
 class DummyHyConnectRepository : HyConnectRepository {
     override suspend fun getVehicleState(): NetworkResult<VehicleState> =
         dummyResult { DummyHyConnectData.vehicleState }
+
+    override suspend fun getSufficientDashboard(): NetworkResult<SufficientDashboard> =
+        dummyResult { DummyHyConnectData.sufficientDashboard }
 
     override suspend fun getNlRecommendedStations(
         nlQuery: String,

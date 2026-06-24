@@ -24,12 +24,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyconnect.pleos.data.model.HydrogenStation
+import com.hyconnect.pleos.data.model.RecommendedStationCard
 import com.hyconnect.pleos.data.model.VehicleState
+import com.hyconnect.pleos.data.repository.DummyHyConnectData
 import com.hyconnect.pleos.ui.components.DashboardPlaceholder
 import com.hyconnect.pleos.ui.components.HydrogenTankCard
 import com.hyconnect.pleos.ui.components.LowFuelBanner
 import com.hyconnect.pleos.ui.components.NlQueryBar
 import com.hyconnect.pleos.ui.components.StationListCard
+import com.hyconnect.pleos.ui.components.SufficientDashboardCard
 import com.hyconnect.pleos.ui.components.WaypointConfirmDialog
 import com.hyconnect.pleos.ui.theme.HyBackground
 import com.hyconnect.pleos.ui.theme.HyBlue
@@ -48,6 +51,7 @@ fun HyConnectScreen(
     onAddWaypoint: (HydrogenStation) -> Unit,
     onMoreStationsClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    onDashboardNavigate: (RecommendedStationCard) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // 경유지로 추가하기 전 확인 팝업 대상. null이면 팝업을 숨긴다.
@@ -84,9 +88,20 @@ fun HyConnectScreen(
                     onRefreshClick = onRefreshClick,
                 )
 
-                FuelMode.SUFFICIENT -> DashboardPlaceholder(
-                    modifier = Modifier.weight(1f),
-                )
+                FuelMode.SUFFICIENT -> {
+                    val dashboard = uiState.dashboard
+                    if (dashboard != null) {
+                        SufficientDashboardCard(
+                            dashboard = dashboard,
+                            onNavigate = onDashboardNavigate,
+                            onViewMore = onMoreStationsClick,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        // 대시보드 로드 전(또는 데이터 없음): 기존 플레이스홀더로 폴백.
+                        DashboardPlaceholder(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
@@ -169,6 +184,7 @@ private fun HyConnectScreenLowPreview() {
             onAddWaypoint = {},
             onMoreStationsClick = {},
             onRefreshClick = {},
+            onDashboardNavigate = {},
         )
     }
 }
@@ -181,9 +197,11 @@ private fun HyConnectScreenSufficientPreview() {
             uiState = HyConnectUiState(
                 vehicleState = VehicleState(
                     vehicleRangeKm = 500,
+                    fuelPercent = 83,
                     message = "수소 충전량이 충분합니다.",
                 ),
                 fuelMode = FuelMode.SUFFICIENT,
+                dashboard = DummyHyConnectData.sufficientDashboard,
                 isLoading = false,
             ),
             onVoiceCallClick = {},
@@ -192,6 +210,7 @@ private fun HyConnectScreenSufficientPreview() {
             onAddWaypoint = {},
             onMoreStationsClick = {},
             onRefreshClick = {},
+            onDashboardNavigate = {},
         )
     }
 }
