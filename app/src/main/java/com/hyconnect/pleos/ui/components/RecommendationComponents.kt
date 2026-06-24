@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyconnect.pleos.data.network.WeatherResponse
 import com.hyconnect.pleos.ui.theme.HyBlue
 import com.hyconnect.pleos.ui.theme.HyBlueSoft
 import com.hyconnect.pleos.ui.theme.HyBorder
@@ -163,44 +164,19 @@ private fun VoiceMicButton(onClick: () -> Unit) {
 }
 
 /**
- * 연료가 충분할 때 보여줄 자리. 날씨+교통 결합 대시보드는 추후 제작 예정이라 플레이스홀더를 둔다.
+ * 연료가 충분할 때 보여줄 자리. 현재는 날씨 카드를 표시한다. (교통 결합은 추후)
  */
 @Composable
-fun DashboardPlaceholder(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(HySurface, RoundedCornerShape(22.dp))
-            .border(1.dp, HyBorder, RoundedCornerShape(22.dp)),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .background(HyBlueSoft, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = "☀", fontSize = 34.sp)
-        }
-        Spacer(modifier = Modifier.height(18.dp))
-        Text(
-            text = "주행 대시보드",
-            color = HyTextPrimary,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.ExtraBold,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "날씨와 교통 상황을 결합한 대시보드를 준비하고 있어요.",
-            color = HyTextSecondary,
-            fontSize = 16.sp,
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = "연료가 넉넉할 때는 이 화면이 표시됩니다.",
-            color = HyTextMuted,
-            fontSize = 14.sp,
-        )
-    }
+fun DashboardPlaceholder(
+    weather: WeatherResponse?,
+    isLoading: Boolean,
+    weatherError: String?,
+    modifier: Modifier = Modifier,
+) {
+    WeatherCard(
+        weather = weather,
+        isLoading = isLoading,
+        error = weatherError,
+        modifier = modifier,
+    )
 }

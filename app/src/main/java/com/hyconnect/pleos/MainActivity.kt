@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.navigation.NavigationResult
 import com.hyconnect.pleos.navigation.PleosNaviHelperNavigationClient
+import com.hyconnect.pleos.data.repository.WeatherRepositoryImpl
 import com.hyconnect.pleos.ui.HyConnectScreen
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.viewmodel.HyConnectViewModel
@@ -21,7 +22,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private val viewModel: HyConnectViewModel by viewModels {
-        HyConnectViewModel.Factory((application as HyConnectApplication).repository)
+        HyConnectViewModel.Factory(
+            (application as HyConnectApplication).repository,
+            WeatherRepositoryImpl(),
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

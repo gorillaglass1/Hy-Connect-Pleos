@@ -32,4 +32,7 @@ object ApiClient {
         .build()
 
     val hyConnectService: HyConnectService = retrofit.create(HyConnectService::class.java)
+
+    // 날씨 API도 동일한 Retrofit/OkHttp/BASE_URL(ServerConfig)을 재사용한다.
+    val weatherApi: WeatherApi = retrofit.create(WeatherApi::class.java)
 }

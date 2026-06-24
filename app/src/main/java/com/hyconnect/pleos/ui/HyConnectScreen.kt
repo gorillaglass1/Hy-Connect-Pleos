@@ -85,6 +85,9 @@ fun HyConnectScreen(
                 )
 
                 FuelMode.SUFFICIENT -> DashboardPlaceholder(
+                    weather = uiState.weather,
+                    isLoading = uiState.isLoading,
+                    weatherError = uiState.weatherError,
                     modifier = Modifier.weight(1f),
                 )
             }

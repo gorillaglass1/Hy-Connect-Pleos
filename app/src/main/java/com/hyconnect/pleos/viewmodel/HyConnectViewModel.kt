@@ -8,7 +8,9 @@ import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.NetworkResult
+import com.hyconnect.pleos.data.network.WeatherResponse
 import com.hyconnect.pleos.data.repository.HyConnectRepository
+import com.hyconnect.pleos.data.repository.WeatherRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +34,8 @@ data class HyConnectUiState(
     val driverMessage: String? = null,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
+    val weather: WeatherResponse? = null,
+    val weatherError: String? = null,
 ) {
     companion object {
         const val DEFAULT_NL_QUERY = "제일 가까운 충전소 추천해줘"
@@ -40,12 +44,14 @@ data class HyConnectUiState(
 
 class HyConnectViewModel(
     private val repository: HyConnectRepository,
+    private val weatherRepository: WeatherRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HyConnectUiState())
     val uiState: StateFlow<HyConnectUiState> = _uiState.asStateFlow()
 
     init {
         refresh()
+        loadWeather()
     }
 
     /** 차량 상태를 불러오고, 주행가능거리가 임계값 이하이면 자연어 추천을 호출한다. */
@@ -131,6 +137,19 @@ class HyConnectViewModel(
         }
     }
 
+    /** 서울 고정 좌표로 현재 날씨를 불러온다. (좌표 동적화는 추후) */
+    fun loadWeather() {
+        viewModelScope.launch {
+            when (val result = weatherRepository.getWeather(SEOUL_LAT, SEOUL_LON)) {
+                is NetworkResult.Success -> _uiState.update { it.copy(weather = result.data, weatherError = null) }
+                is NetworkResult.Error -> {
+                    Log.w("HyConnect", "weather load failed: ${result.message}")
+                    _uiState.update { it.copy(weatherError = result.message) }
+                }
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
@@ -141,11 +160,12 @@ class HyConnectViewModel(
     @Suppress("UNCHECKED_CAST")
     class Factory(
         private val repository: HyConnectRepository,
+        private val weatherRepository: WeatherRepository,
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             // TODO: Hilt/Koin 등 DI를 도입하면 ViewModel 의존성 주입을 프레임워크로 교체한다.
             if (modelClass.isAssignableFrom(HyConnectViewModel::class.java)) {
-                return HyConnectViewModel(repository) as T
+                return HyConnectViewModel(repository, weatherRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
@@ -154,6 +174,10 @@ class HyConnectViewModel(
     companion object {
         /** 주행가능거리가 이 값(km) 이하면 충전소 추천 모드로 전환한다. */
         const val LOW_RANGE_THRESHOLD_KM = 100
+
+        /** 날씨 조회 기본 좌표(서울 시청). 좌표 동적화는 추후. */
+        const val SEOUL_LAT = 37.5665
+        const val SEOUL_LON = 126.9780
 
         private val EMPTY_RECOMMENDATION = StationRecommendation(driverMessage = null, stations = emptyList())
     }
