@@ -12,9 +12,13 @@ import com.hyconnect.pleos.data.network.ChargingLogRequestDto
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
 import com.hyconnect.pleos.data.network.DeliveryStationDto
 import com.hyconnect.pleos.data.network.HyConnectService
+import com.hyconnect.pleos.data.network.NearestRecommendationRequestDto
 import com.hyconnect.pleos.data.network.NetworkResult
 import com.hyconnect.pleos.data.network.PersonalizedRecommendationRequestDto
 import com.hyconnect.pleos.data.network.PreferenceLearningRequestDto
+import com.hyconnect.pleos.data.network.RequestContextDto
+import com.hyconnect.pleos.data.network.RequestLocationDto
+import com.hyconnect.pleos.data.network.RequestVehicleDto
 import com.hyconnect.pleos.data.network.UserPreferenceResponseDto
 import com.hyconnect.pleos.location.CurrentLocationStore
 import com.hyconnect.pleos.location.DestinationStore
@@ -93,15 +97,22 @@ class HyConnectRepositoryImpl(
         runCatching {
             val location = CurrentLocationStore.snapshot()
             service.getSufficientDashboard(
-                PersonalizedRecommendationRequestDto(
-                    userId = userId,
-                    currentLatitude = location?.latitude ?: defaultLat,
-                    currentLongitude = location?.longitude ?: defaultLng,
-                    remainingRange = DEFAULT_FULL_RANGE_KM,
+                NearestRecommendationRequestDto(
+                    // TODO: Pleos Vehicle SDK 연동 후 실제 연료 잔량/주행거리로 교체한다.
+                    vehicle = RequestVehicleDto(
+                        fuelPercent = TEMP_FUEL_PERCENT,
+                        remainingRange = DEFAULT_FULL_RANGE_KM,
+                        fuelType = FUEL_TYPE_HYDROGEN,
+                    ),
+                    location = RequestLocationDto(
+                        lat = location?.latitude ?: defaultLat,
+                        lon = location?.longitude ?: defaultLng,
+                    ),
+                    context = RequestContextDto(radiusKm = DASHBOARD_RADIUS_KM),
                 ),
             ).toSufficientDashboard()
         }.getOrElse {
-            Log.w("HyConnect", "sufficient dashboard failed, fallback to demo", it)
+            Log.w("HyConnect", "nearest-recommendation failed, fallback to demo", it)
             // 서버 미연동/오프라인에서도 화면 검증이 가능하도록 데모 대시보드를 제공한다.
             DummyHyConnectData.sufficientDashboard
         }
@@ -211,6 +222,13 @@ class HyConnectRepositoryImpl(
     private companion object {
         // 연료 충분 화면 요청 시 보낼 기준 주행거리(km). 서버는 이 값으로 가까운 충전소를 추린다.
         const val DEFAULT_FULL_RANGE_KM = 500.0
+
+        // Vehicle SDK 연동 전까지 사용할 임시 차량 요청값.
+        const val TEMP_FUEL_PERCENT = 83
+        const val FUEL_TYPE_HYDROGEN = "hydrogen"
+
+        // 대시보드 추천 검색 반경(km).
+        const val DASHBOARD_RADIUS_KM = 10
     }
 }
 

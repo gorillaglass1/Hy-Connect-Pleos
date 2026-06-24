@@ -1,122 +1,102 @@
 package com.hyconnect.pleos.data.mapper
 
-import com.hyconnect.pleos.data.network.RecommendationDeliveryPayloadDto
-import com.hyconnect.pleos.data.network.RecommendedStationResponseDto
-import com.hyconnect.pleos.data.network.SubScoresDto
+import com.hyconnect.pleos.data.network.DeliveryStationDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HyConnectMappersTest {
     @Test
-    fun deliveryPayloadMapsToHydrogenStation() {
-        val station = payloadDto().toHydrogenStation(isRecommended = true)
+    fun deliveryStationMapsToHydrogenStation() {
+        val station = deliveryDto(isRecommended = true).toHydrogenStation()
 
         assertEquals("2820020121HS2019018", station.id)
         assertEquals("H인천수소충전소 에코스테이션", station.name)
         assertEquals("인천 남동구 청능대로468번길 1", station.address)
-        assertEquals("도달 가능", station.status)
-        assertEquals("대기실 · 세차장 · 편의점", station.pressureInfo)
+        assertEquals("운영중", station.status)
+        assertEquals("700bar 사용 가능", station.pressureInfo)
         assertEquals(175.8, station.distanceKm, 0.0)
-        assertEquals(0, station.waitMinutes)
+        assertEquals(26, station.waitMinutes)
         assertTrue(station.isRecommended)
         assertEquals(37.39867905, station.latitude ?: 0.0, 0.0)
         assertEquals(126.71148794, station.longitude ?: 0.0, 0.0)
     }
 
     @Test
-    fun recommendationListMapsToStationRecommendation() {
+    fun nullableFieldsFallBackToSafeDefaults() {
+        val station = DeliveryStationDto(
+            id = "id-1",
+            name = "이름",
+            address = null,
+            status = null,
+            pressureInfo = null,
+            distanceKm = null,
+            waitMinutes = null,
+            isRecommended = false,
+            latitude = null,
+            longitude = null,
+        ).toHydrogenStation()
+
+        assertEquals("", station.address)
+        assertEquals("", station.status)
+        assertEquals("", station.pressureInfo)
+        assertEquals(0.0, station.distanceKm, 0.0)
+        assertEquals(0, station.waitMinutes)
+        assertFalse(station.isRecommended)
+        assertNull(station.latitude)
+        assertNull(station.longitude)
+    }
+
+    @Test
+    fun deliveryListHighlightsRecommendedStationInDriverMessage() {
         val recommendation = listOf(
-            responseDto(chrstnMno = "A", reason = "1순위 사유", reachable = true),
-            responseDto(chrstnMno = "B", reason = "2순위 사유", reachable = false),
-        ).toStationRecommendation()
+            deliveryDto(id = "A", name = "A충전소", waitMinutes = 5, isRecommended = false),
+            deliveryDto(id = "B", name = "B충전소", waitMinutes = 12, isRecommended = true),
+        ).toStationRecommendationFromDelivery()
 
-        assertEquals("1순위 사유", recommendation.driverMessage)
         assertEquals(2, recommendation.stations.size)
-        assertTrue(recommendation.stations.first().isRecommended)
-        assertFalse(recommendation.stations[1].isRecommended)
-        assertEquals("도달 주의", recommendation.stations[1].status)
+        // isRecommended=true 인 B충전소가 배너 문구의 기준이 된다.
+        val message = recommendation.driverMessage
+        assertTrue(message != null && message.contains("B충전소"))
+        assertTrue(message!!.contains("12분"))
     }
 
     @Test
-    fun recommendationListMapsToAiRecommendation() {
-        val ai = listOf(responseDto(chrstnMno = "A", reason = "가장 매칭도가 높음", reachable = true))
-            .toAiRecommendation()
+    fun deliveryListFallsBackToFirstStationWhenNoneRecommended() {
+        val recommendation = listOf(
+            deliveryDto(id = "A", name = "A충전소", waitMinutes = 7, isRecommended = false),
+            deliveryDto(id = "B", name = "B충전소", waitMinutes = 3, isRecommended = false),
+        ).toStationRecommendationFromDelivery()
 
-        assertTrue(ai.title.contains("방문을 추천해요"))
-        assertEquals("가장 매칭도가 높음", ai.reason)
-        assertEquals("가장 매칭도가 높음", ai.routeSummary)
+        val message = recommendation.driverMessage
+        assertTrue(message != null && message.contains("A충전소"))
     }
 
     @Test
-    fun waitMinutesFallsBackToWaitVehiclesTimesFive() {
-        val station = payloadDto(waitTimeMinutes = null, waitVehicles = 4)
-            .toHydrogenStation(isRecommended = false)
+    fun emptyDeliveryListProducesNullDriverMessage() {
+        val recommendation = emptyList<DeliveryStationDto>().toStationRecommendationFromDelivery()
 
-        assertEquals(20, station.waitMinutes)
+        assertNull(recommendation.driverMessage)
+        assertTrue(recommendation.stations.isEmpty())
     }
 
-    private fun payloadDto(
-        waitTimeMinutes: Int? = 0,
-        waitVehicles: Int? = 0,
-    ) = RecommendationDeliveryPayloadDto(
-        chrstnMno = "2820020121HS2019018",
-        chrstnNm = "H인천수소충전소 에코스테이션",
-        roadNmAddr = "인천 남동구 청능대로468번길 1",
+    private fun deliveryDto(
+        id: String = "2820020121HS2019018",
+        name: String = "H인천수소충전소 에코스테이션",
+        waitMinutes: Int? = 26,
+        isRecommended: Boolean = false,
+    ) = DeliveryStationDto(
+        id = id,
+        name = name,
+        address = "인천 남동구 청능대로468번길 1",
+        status = "운영중",
+        pressureInfo = "700bar 사용 가능",
+        distanceKm = 175.8,
+        waitMinutes = waitMinutes,
+        isRecommended = isRecommended,
         latitude = 37.39867905,
         longitude = 126.71148794,
-        vhcleKndCd = null,
-        vhcleKndNm = null,
-        ntslPc = 11000,
-        distanceToStation = 175.82,
-        detourDistance = 0.36,
-        waitVehicles = waitVehicles,
-        waitTimeMinutes = waitTimeMinutes,
-        facilities = listOf("대기실", "세차장", "편의점"),
-        isReachable = true,
-        finalScore = 84.1,
-        recommendationReason = "매칭도가 매우 높습니다.",
-    )
-
-    private fun responseDto(
-        chrstnMno: String,
-        reason: String,
-        reachable: Boolean,
-    ) = RecommendedStationResponseDto(
-        chrstnMno = chrstnMno,
-        chrstnNm = "충전소 $chrstnMno",
-        roadNmAddr = "주소 $chrstnMno",
-        vhcleKndCd = null,
-        vhcleKndNm = null,
-        ntslPc = 11000,
-        distanceToStation = 175.82,
-        distanceToDestination = 12.4,
-        detourDistance = 0.36,
-        waitVehicles = 0,
-        waitTimeMinutes = 0,
-        facilities = listOf("대기실"),
-        isReachable = reachable,
-        subScores = SubScoresDto(price = 70.0, waitingTime = 100.0, distance = 95.0, facilities = 60.0),
-        finalScore = 84.1,
-        recommendationReason = reason,
-        deliveryPayload = RecommendationDeliveryPayloadDto(
-            chrstnMno = chrstnMno,
-            chrstnNm = "충전소 $chrstnMno",
-            roadNmAddr = "주소 $chrstnMno",
-            latitude = 37.4,
-            longitude = 126.7,
-            vhcleKndCd = null,
-            vhcleKndNm = null,
-            ntslPc = 11000,
-            distanceToStation = 175.82,
-            detourDistance = 0.36,
-            waitVehicles = 0,
-            waitTimeMinutes = 0,
-            facilities = listOf("대기실"),
-            isReachable = reachable,
-            finalScore = 84.1,
-            recommendationReason = reason,
-        ),
     )
 }

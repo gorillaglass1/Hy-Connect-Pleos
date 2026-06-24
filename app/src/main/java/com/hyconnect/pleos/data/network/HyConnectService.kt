@@ -22,9 +22,9 @@ interface HyConnectService {
     ): List<DeliveryStationDto>
 
     /** 연료 충분 화면(battery_sufficient)의 서버 드리븐 UI 페이로드를 가져온다. */
-    @POST("dashboard/sufficient")
+    @POST("nearest-recommendation")
     suspend fun getSufficientDashboard(
-        @Body request: PersonalizedRecommendationRequestDto,
+        @Body request: NearestRecommendationRequestDto,
     ): SufficientDashboardDto
 
     @POST("users/{user_id}/preferences/learn")

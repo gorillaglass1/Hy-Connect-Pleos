@@ -35,9 +35,9 @@ android {
 
     buildTypes {
         debug {
-            // 서버에 일부 기능(예: dashboard/sufficient)이 아직 없어, 디버그에서는 더미 데이터로 테스트한다.
-            // 로컬 서버와 실제 통신하려면 false로 되돌린다.
-            buildConfigField("boolean", "USE_DUMMY_DATA", "true")
+            // 서버가 활성화되어(dashboard/sufficient 포함) 디버그에서도 실제 서버와 통신한다.
+            // 서버 없이 더미 데이터로만 화면을 검증하려면 true로 바꾼다.
+            buildConfigField("boolean", "USE_DUMMY_DATA", "false")
         }
         release {
             isMinifyEnabled = false
