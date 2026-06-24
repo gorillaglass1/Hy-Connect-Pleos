@@ -154,7 +154,6 @@ private fun HyConnectScreenLowPreview() {
         HyConnectScreen(
             uiState = HyConnectUiState(
                 vehicleState = VehicleState(
-                    hydrogenPercent = 18,
                     vehicleRangeKm = 92,
                     message = "충전이 필요합니다.",
                 ),
@@ -181,7 +180,6 @@ private fun HyConnectScreenSufficientPreview() {
         HyConnectScreen(
             uiState = HyConnectUiState(
                 vehicleState = VehicleState(
-                    hydrogenPercent = 78,
                     vehicleRangeKm = 500,
                     message = "수소 충전량이 충분합니다.",
                 ),

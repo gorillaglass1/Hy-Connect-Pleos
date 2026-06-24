@@ -138,7 +138,6 @@ private fun HydrogenTankCardLowPreview() {
     HyConnectTheme {
         HydrogenTankCard(
             vehicleState = VehicleState(
-                hydrogenPercent = 23,
                 vehicleRangeKm = 96,
                 message = "충전이 필요합니다.",
             ),
@@ -153,7 +152,6 @@ private fun HydrogenTankCardFullPreview() {
     HyConnectTheme {
         HydrogenTankCard(
             vehicleState = VehicleState(
-                hydrogenPercent = 78,
                 vehicleRangeKm = 500,
                 message = "수소 충전량이 충분합니다.",
             ),

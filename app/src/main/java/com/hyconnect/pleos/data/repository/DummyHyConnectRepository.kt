@@ -1,7 +1,5 @@
 package com.hyconnect.pleos.data.repository
 
-import com.hyconnect.pleos.data.model.AiRecommendation
-import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
@@ -14,12 +12,6 @@ import kotlinx.coroutines.withContext
 class DummyHyConnectRepository : HyConnectRepository {
     override suspend fun getVehicleState(): NetworkResult<VehicleState> =
         dummyResult { DummyHyConnectData.vehicleState }
-
-    override suspend fun getAiRecommendation(): NetworkResult<AiRecommendation> =
-        dummyResult { DummyHyConnectData.aiRecommendation }
-
-    override suspend fun getRecommendedStations(): NetworkResult<List<HydrogenStation>> =
-        dummyResult { DummyHyConnectData.recommendedStations }
 
     override suspend fun getNlRecommendedStations(
         nlQuery: String,

@@ -1,21 +1,12 @@
 package com.hyconnect.pleos.data.repository
 
-import com.hyconnect.pleos.data.model.AiRecommendation
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.VehicleState
 
 object DummyHyConnectData {
     val vehicleState = VehicleState(
-        hydrogenPercent = 23,
         vehicleRangeKm = 100,
         message = "현재 경로 기준 충전 없이 약 1시간 40분 주행할 수 있습니다.",
-    )
-
-    val aiRecommendation = AiRecommendation(
-        title = "양재 충전소를 먼저 방문하세요",
-        dustSummary = "강남권 미세먼지는 보통이며 외기 순환 주행이 가능합니다.",
-        routeSummary = "경부고속도로 진입 전 충전하면 예상 대기 시간이 가장 짧습니다.",
-        reason = "잔여 수소량, 현재 위치, 대기 시간, 700bar 가능 여부를 함께 반영했습니다.",
     )
 
     val recommendedStations = listOf(

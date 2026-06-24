@@ -3,7 +3,6 @@ package com.hyconnect.pleos.data.repository
 import android.util.Log
 import com.google.gson.JsonParseException
 import com.hyconnect.pleos.data.mapper.toStationRecommendationFromDelivery
-import com.hyconnect.pleos.data.model.AiRecommendation
 import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.StationRecommendation
 import com.hyconnect.pleos.data.model.VehicleState
@@ -24,8 +23,6 @@ import java.io.IOException
 
 interface HyConnectRepository {
     suspend fun getVehicleState(): NetworkResult<VehicleState>
-    suspend fun getAiRecommendation(): NetworkResult<AiRecommendation>
-    suspend fun getRecommendedStations(): NetworkResult<List<HydrogenStation>>
 
     /**
      * 주행가능거리가 임계값 이하일 때 자연어 질의로 충전소 추천을 받는다.
@@ -79,38 +76,9 @@ class HyConnectRepositoryImpl(
         // 서버에는 차량 테이블이 없다. 연료/주행가능거리는 클라이언트 입력값이다.
         // TODO: Pleos Vehicle SDK가 연동되면 실제 차량 상태로 교체한다.
         VehicleState(
-            hydrogenPercent = 28,
             vehicleRangeKm = 96,
             message = "차량 SDK 연동 전까지 임시 차량 상태를 사용합니다.",
         )
-    }
-
-    override suspend fun getAiRecommendation(): NetworkResult<AiRecommendation> = safeApiCall {
-        runCatching {
-            val top = fetchDeliveryStations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
-                .firstOrNull { it.isRecommended }
-                ?: fetchDeliveryStations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM).firstOrNull()
-            AiRecommendation(
-                title = top?.let { "${it.name} 방문을 추천해요" } ?: "지금 충전하기 좋은 타이밍이에요",
-                dustSummary = "",
-                routeSummary = top?.let { "대기 약 ${it.waitMinutes ?: 0}분 · ${it.distanceKm ?: 0.0}km" }.orEmpty(),
-                reason = "대기 시간, 거리, 가격, 편의시설을 종합해 추천합니다.",
-            )
-        }.getOrElse {
-            Log.w("HyConnect", "ai recommendation failed, fallback to demo", it)
-            demoAiRecommendation()
-        }
-    }
-
-    override suspend fun getRecommendedStations(): NetworkResult<List<HydrogenStation>> = safeApiCall {
-        runCatching {
-            fetchDeliveryStations(nlQuery = null, remainingRange = DEFAULT_RANGE_KM)
-                .toStationRecommendationFromDelivery()
-                .stations
-        }.getOrElse {
-            Log.w("HyConnect", "recommended stations failed, fallback to demo", it)
-            demoNlStationRecommendation(DEFAULT_RANGE_KM.toInt()).stations
-        }
     }
 
     override suspend fun getNlRecommendedStations(
@@ -214,19 +182,7 @@ class HyConnectRepositoryImpl(
             }
         }
 
-    private companion object {
-        // 추천 흐름에서 주행가능거리 입력이 없을 때 쓰는 기본값(km).
-        const val DEFAULT_RANGE_KM = 100.0
-    }
 }
-
-private fun demoAiRecommendation(): AiRecommendation =
-    AiRecommendation(
-        title = "현대 수소충전소 양재 방문을 추천해요",
-        dustSummary = "",
-        routeSummary = "경로에서 가장 가까운 충전소를 골라봤어요.",
-        reason = "대기 시간, 거리, 가격, 편의시설을 종합해 추천합니다.",
-    )
 
 private fun demoNlStationRecommendation(remainingRange: Int): StationRecommendation =
     StationRecommendation(

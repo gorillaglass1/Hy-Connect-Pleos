@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 /** 연료 상태에 따른 화면 모드. 주행가능거리 임계값을 기준으로 전환한다. */
 enum class FuelMode {
@@ -66,10 +65,8 @@ class HyConnectViewModel(
 
         _uiState.update {
             it.copy(
-                vehicleState = it.vehicleState.copy(
-                    vehicleRangeKm = rangeKm,
-                    hydrogenPercent = fuelPercentFor(rangeKm),
-                ),
+                // hydrogenPercent는 VehicleState가 vehicleRangeKm에서 파생한다.
+                vehicleState = it.vehicleState.copy(vehicleRangeKm = rangeKm),
                 fuelMode = mode,
             )
         }
@@ -96,12 +93,9 @@ class HyConnectViewModel(
             val baseState = vehicleResult.dataOrFallback(_uiState.value.vehicleState)
             // SDK가 이미 실거리를 통지했다면 그 값을 우선한다. 아니면 서버 임시값(연동 전 폴백).
             val rangeKm = sdkRangeKm ?: baseState.vehicleRangeKm
-            // 게이지(%)는 주행가능거리에서 환산한다. SDK엔 수소 탱크/연료 레벨 API가 없고,
+            // 게이지(%)는 VehicleState가 주행가능거리에서 파생한다. SDK엔 수소 탱크/연료 레벨 API가 없고,
             // RANGE_REMAINING은 EV·수소·내연 모두에서 동작하므로 차종 무관하게 일관된 게이지를 준다.
-            val vehicleState = baseState.copy(
-                vehicleRangeKm = rangeKm,
-                hydrogenPercent = fuelPercentFor(rangeKm),
-            )
+            val vehicleState = baseState.copy(vehicleRangeKm = rangeKm)
             val mode = fuelModeFor(rangeKm)
 
             _uiState.update {
@@ -193,10 +187,6 @@ class HyConnectViewModel(
     private fun fuelModeFor(remainingRangeKm: Int): FuelMode =
         if (remainingRangeKm <= LOW_RANGE_THRESHOLD_KM) FuelMode.LOW else FuelMode.SUFFICIENT
 
-    /** 주행가능거리를 완충 기준거리 대비 비율(%)로 환산한다. 게이지 표시용. */
-    private fun fuelPercentFor(remainingRangeKm: Int): Int =
-        ((remainingRangeKm.toFloat() / FULL_RANGE_KM) * 100f).roundToInt().coerceIn(0, 100)
-
     @Suppress("UNCHECKED_CAST")
     class Factory(
         private val repository: HyConnectRepository,
@@ -214,12 +204,7 @@ class HyConnectViewModel(
         /** 주행가능거리가 이 값(km) 이하면 충전소 추천 모드로 전환한다. */
         const val LOW_RANGE_THRESHOLD_KM = 100
 
-        /**
-         * 게이지(%) 환산용 완충 기준 주행가능거리(km).
-         * 수소 탱크 레벨 API가 없어 주행가능거리를 이 값 대비 비율로 표시한다.
-         * 차량(예: NEXO ~600km)에 맞춰 조정한다.
-         */
-        const val FULL_RANGE_KM = 600
+        // 완충 기준거리(차량 최대 연료량 사이즈)는 VehicleState.FULL_RANGE_KM 단일 출처를 따른다.
 
         private val EMPTY_RECOMMENDATION = StationRecommendation(driverMessage = null, stations = emptyList())
     }
