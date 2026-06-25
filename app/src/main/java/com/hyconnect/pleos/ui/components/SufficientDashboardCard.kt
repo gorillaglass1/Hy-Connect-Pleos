@@ -51,13 +51,12 @@ import com.hyconnect.pleos.ui.theme.HyWarn
  * 데이터(AI 인사이트 + 추천 충전소 + 액션)를 받아 카드를 조립한다.
  *
  * 액션 버튼은 서버가 내려준 [SufficientDashboard.actions] 배열대로 그리되,
- * 동작은 타입으로 분기해 [onNavigate]/[onViewMore] 콜백으로 위임한다.
+ * 동작은 타입으로 분기해 [onNavigate] 콜백으로 위임한다.
  */
 @Composable
 fun SufficientDashboardCard(
     dashboard: SufficientDashboard,
     onNavigate: (RecommendedStationCard) -> Unit,
-    onViewMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -82,7 +81,6 @@ fun SufficientDashboardCard(
             actions = dashboard.actions,
             station = dashboard.recommendedStation,
             onNavigate = onNavigate,
-            onViewMore = onViewMore,
         )
     }
 }
@@ -260,7 +258,6 @@ private fun DashboardActions(
     actions: List<DashboardAction>,
     station: RecommendedStationCard?,
     onNavigate: (RecommendedStationCard) -> Unit,
-    onViewMore: () -> Unit,
 ) {
     if (actions.isEmpty()) return
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -270,7 +267,8 @@ private fun DashboardActions(
                     { station?.let(onNavigate) }
                 }
 
-                DashboardActionType.VIEW_MORE -> onViewMore
+                // VIEW_MORE 액션은 현재 대시보드에서 생성하지 않는다(타입 기반은 유지).
+                DashboardActionType.VIEW_MORE,
                 DashboardActionType.UNKNOWN -> {
                     {}
                 }
@@ -385,7 +383,6 @@ private fun SufficientDashboardCardPreview() {
         SufficientDashboardCard(
             dashboard = com.hyconnect.pleos.data.repository.DummyHyConnectData.sufficientDashboard,
             onNavigate = {},
-            onViewMore = {},
             modifier = Modifier.padding(20.dp),
         )
     }

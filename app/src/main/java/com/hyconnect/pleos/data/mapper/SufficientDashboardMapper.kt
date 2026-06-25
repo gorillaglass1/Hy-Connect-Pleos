@@ -76,7 +76,7 @@ private fun RecommendedStationCardDto.toRecommendedStationCard(): RecommendedSta
 
 /**
  * 서버가 버튼(actions)을 더 이상 내려주지 않으므로, 추천소가 있으면 기본 버튼을 클라이언트에서 구성한다.
- * (경로 안내 = 추천소 선택, 더보기 = 충전소 목록)
+ * (경로 안내 = 추천소 선택)
  */
 private fun defaultActionsFor(station: RecommendedStationCard?): List<DashboardAction> {
     if (station == null) return emptyList()
@@ -86,12 +86,6 @@ private fun defaultActionsFor(station: RecommendedStationCard?): List<DashboardA
             label = "경로 안내 시작",
             style = DashboardActionStyle.PRIMARY,
             stationId = station.stationId,
-        ),
-        DashboardAction(
-            type = DashboardActionType.VIEW_MORE,
-            label = "다른 충전소 보기",
-            style = DashboardActionStyle.SECONDARY,
-            stationId = null,
         ),
     )
 }

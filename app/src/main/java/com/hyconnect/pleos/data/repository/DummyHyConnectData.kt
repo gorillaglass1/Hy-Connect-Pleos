@@ -66,12 +66,6 @@ object DummyHyConnectData {
                 style = DashboardActionStyle.PRIMARY,
                 stationId = "ST_SANGAM_001",
             ),
-            DashboardAction(
-                type = DashboardActionType.VIEW_MORE,
-                label = "다른 충전소 보기",
-                style = DashboardActionStyle.SECONDARY,
-                stationId = null,
-            ),
         ),
     )
 

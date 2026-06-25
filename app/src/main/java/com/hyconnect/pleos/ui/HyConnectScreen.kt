@@ -99,7 +99,6 @@ fun HyConnectScreen(
                         SufficientDashboardCard(
                             dashboard = dashboard,
                             onNavigate = onDashboardNavigate,
-                            onViewMore = onMoreStationsClick,
                             modifier = Modifier.weight(1f),
                         )
                     } else {

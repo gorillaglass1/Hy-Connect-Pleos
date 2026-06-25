@@ -66,19 +66,17 @@ class SufficientDashboardMapperTest {
         assertTrue(station.available)
     }
 
-    /** 응답엔 actions가 없으므로, 추천소가 있으면 매퍼가 기본 버튼(경로안내/더보기)을 생성한다. */
+    /** 응답엔 actions가 없으므로, 추천소가 있으면 매퍼가 기본 버튼(경로안내)을 생성한다. */
     @Test
     fun actionsAreSynthesizedWhenStationPresent() {
         val dto = gson.fromJson(serverResponseJson, SufficientDashboardDto::class.java)
         val actions = dto.toSufficientDashboard().actions
 
-        assertEquals(2, actions.size)
+        assertEquals(1, actions.size)
         assertEquals(DashboardActionType.NAVIGATE, actions[0].type)
         assertEquals(DashboardActionStyle.PRIMARY, actions[0].style)
         // NAVIGATE 버튼은 추천소 식별자(chrstn_mno)를 들고 있어야 한다.
         assertEquals("1156020121HS2019014", actions[0].stationId)
-        assertEquals(DashboardActionType.VIEW_MORE, actions[1].type)
-        assertNull(actions[1].stationId)
     }
 
     @Test
