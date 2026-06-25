@@ -138,12 +138,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.LowFuelContent(
         driverMessage = uiState.driverMessage,
     )
     Spacer(modifier = Modifier.height(14.dp))
-    NlQueryBar(
-        query = uiState.nlQuery,
-        onQueryChange = onQueryChange,
-        onSearch = onSearch,
-        onVoiceClick = onVoiceClick,
-    )
+//    NlQueryBar(
+//        query = uiState.nlQuery,
+//        onQueryChange = onQueryChange,
+//        onSearch = onSearch,
+//        onVoiceClick = onVoiceClick,
+//    )
     Spacer(modifier = Modifier.height(14.dp))
     StationListCard(
         stations = uiState.stations,
