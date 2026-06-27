@@ -8,6 +8,8 @@ import com.hyconnect.pleos.vehicle.VehicleDrivingState
 
 class GearSelectionListenerImpl(
     private val trigger: RangeRemainingTrigger,
+    // 운전습관 세션 시작/종료 판정용. 주행상태가 바뀔 때마다 통지한다(없으면 무시).
+    private val onDrivingState: ((VehicleDrivingState) -> Unit)? = null,
 ) : GearSelectionListener {
 
     override fun onSelected(gear: VehicleGear?) {
@@ -24,6 +26,7 @@ class GearSelectionListenerImpl(
             VehicleGear.GEAR_UNKNOWN, null -> VehicleDrivingState.UNKNOWN
         }
         trigger.updateDrivingState(state)
+        onDrivingState?.invoke(state)
     }
 
     override fun onFailed(e: Exception) {

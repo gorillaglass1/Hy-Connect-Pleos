@@ -6,6 +6,7 @@ import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.ChargingLogResponseDto
 import com.hyconnect.pleos.data.network.NetworkResult
 import com.hyconnect.pleos.data.network.UserPreferenceResponseDto
+import com.hyconnect.pleos.vehicle.habit.DrivingHabitProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -14,7 +15,9 @@ class DummyHyConnectRepository : HyConnectRepository {
     override suspend fun getVehicleState(): NetworkResult<VehicleState> =
         dummyResult { DummyHyConnectData.vehicleState }
 
-    override suspend fun getSufficientDashboard(): NetworkResult<SufficientDashboard> =
+    override suspend fun getSufficientDashboard(
+        drivingHabit: DrivingHabitProfile?,
+    ): NetworkResult<SufficientDashboard> =
         dummyResult { DummyHyConnectData.sufficientDashboard }
 
     override suspend fun getNlRecommendedStations(

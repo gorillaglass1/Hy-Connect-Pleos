@@ -2,6 +2,7 @@ package com.hyconnect.pleos.data.repository
 
 import android.util.Log
 import com.google.gson.JsonParseException
+import com.hyconnect.pleos.data.mapper.toDrivingHabitDto
 import com.hyconnect.pleos.data.mapper.toStationRecommendationFromDelivery
 import com.hyconnect.pleos.data.mapper.toSufficientDashboard
 import com.hyconnect.pleos.data.model.HydrogenStation
@@ -22,6 +23,7 @@ import com.hyconnect.pleos.data.network.RequestVehicleDto
 import com.hyconnect.pleos.data.network.UserPreferenceResponseDto
 import com.hyconnect.pleos.location.CurrentLocationStore
 import com.hyconnect.pleos.location.DestinationStore
+import com.hyconnect.pleos.vehicle.habit.DrivingHabitProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -30,8 +32,13 @@ import java.io.IOException
 interface HyConnectRepository {
     suspend fun getVehicleState(): NetworkResult<VehicleState>
 
-    /** 연료 충분 화면(battery_sufficient)의 서버 드리븐 대시보드 데이터를 가져온다. */
-    suspend fun getSufficientDashboard(): NetworkResult<SufficientDashboard>
+    /**
+     * 연료 충분 화면(battery_sufficient)의 서버 드리븐 대시보드 데이터를 가져온다.
+     * [drivingHabit]에 누적 운전습관이 있으면 요청 본문에 실어 서버가 Gemini로 개인화하게 한다.
+     */
+    suspend fun getSufficientDashboard(
+        drivingHabit: DrivingHabitProfile? = null,
+    ): NetworkResult<SufficientDashboard>
 
     /**
      * 주행가능거리가 임계값 이하일 때 자연어 질의로 충전소 추천을 받는다.
@@ -93,7 +100,9 @@ class HyConnectRepositoryImpl(
         )
     }
 
-    override suspend fun getSufficientDashboard(): NetworkResult<SufficientDashboard> = safeApiCall {
+    override suspend fun getSufficientDashboard(
+        drivingHabit: DrivingHabitProfile?,
+    ): NetworkResult<SufficientDashboard> = safeApiCall {
         runCatching {
             val location = CurrentLocationStore.snapshot()
             service.getSufficientDashboard(
@@ -109,6 +118,8 @@ class HyConnectRepositoryImpl(
                         lon = location?.longitude ?: defaultLng,
                     ),
                     context = RequestContextDto(radiusKm = DASHBOARD_RADIUS_KM),
+                    // 누적 운전습관이 있을 때만 실어 보낸다(없으면 null → 본문 생략).
+                    drivingHabit = drivingHabit?.takeIf { it.hasData }?.toDrivingHabitDto(),
                 ),
             ).toSufficientDashboard()
         }.getOrElse {

@@ -26,6 +26,7 @@ import com.hyconnect.pleos.ui.theme.HyBlueSoft
 import com.hyconnect.pleos.ui.theme.HySurface
 import com.hyconnect.pleos.ui.theme.HyTextPrimary
 import com.hyconnect.pleos.ui.theme.HyTextSecondary
+import com.hyconnect.pleos.ui.theme.hyCard
 
 /**
  * 경유지로 추가하기 전에 사용자 확인을 받는 팝업.
@@ -41,7 +42,7 @@ fun WaypointConfirmDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(HySurface, RoundedCornerShape(24.dp))
+                .hyCard(corner = 28.dp)
                 .padding(28.dp),
         ) {
             Text(

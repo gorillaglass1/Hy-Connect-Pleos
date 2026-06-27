@@ -1,7 +1,6 @@
 package com.hyconnect.pleos.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,7 +35,6 @@ import com.hyconnect.pleos.data.model.RecommendedStationCard
 import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.ui.theme.HyBlue
 import com.hyconnect.pleos.ui.theme.HyBlueSoft
-import com.hyconnect.pleos.ui.theme.HyBorder
 import com.hyconnect.pleos.ui.theme.HyPositive
 import com.hyconnect.pleos.ui.theme.HyPositiveSoft
 import com.hyconnect.pleos.ui.theme.HySurface
@@ -45,6 +43,7 @@ import com.hyconnect.pleos.ui.theme.HyTextMuted
 import com.hyconnect.pleos.ui.theme.HyTextPrimary
 import com.hyconnect.pleos.ui.theme.HyTextSecondary
 import com.hyconnect.pleos.ui.theme.HyWarn
+import com.hyconnect.pleos.ui.theme.hyCard
 
 /**
  * 연료 충분 화면의 서버 드리븐 대시보드.
@@ -90,8 +89,7 @@ private fun AiInsightCard(insight: AiInsight, modifier: Modifier = Modifier) {
     val accent = insight.status.accentColor()
     Column(
         modifier = modifier
-            .background(HySurface, RoundedCornerShape(22.dp))
-            .border(1.dp, HyBorder, RoundedCornerShape(22.dp))
+            .hyCard(corner = 24.dp)
             .padding(22.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -173,8 +171,7 @@ private fun MetricCell(metric: InsightMetric, modifier: Modifier = Modifier) {
 private fun RecommendedStationCardView(station: RecommendedStationCard, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(HySurface, RoundedCornerShape(22.dp))
-            .border(1.dp, HyBorder, RoundedCornerShape(22.dp))
+            .hyCard(corner = 24.dp)
             .padding(22.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

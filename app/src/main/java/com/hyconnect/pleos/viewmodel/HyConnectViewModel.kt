@@ -10,6 +10,10 @@ import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.NetworkResult
 import com.hyconnect.pleos.data.repository.HyConnectRepository
+import com.hyconnect.pleos.vehicle.habit.DrivingHabitAnalyzer
+import com.hyconnect.pleos.vehicle.habit.DrivingHabitProfile
+import com.hyconnect.pleos.vehicle.habit.DrivingHabitSignalListener
+import com.hyconnect.pleos.vehicle.habit.DrivingHabitStore
 import com.hyconnect.pleos.voice.withJosa
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -36,6 +40,8 @@ data class HyConnectUiState(
     val stations: List<HydrogenStation> = emptyList(),
     // 연료 충분 화면(SUFFICIENT)의 서버 드리븐 대시보드. 아직 로드 전이면 null.
     val dashboard: SufficientDashboard? = null,
+    // 로컬 누적 운전습관 프로파일. 상단 운전 점수 패널에 표시하고 서버 개인화 요청에도 쓴다.
+    val drivingHabit: DrivingHabitProfile = DrivingHabitProfile(),
     val nlQuery: String = DEFAULT_NL_QUERY,
     val driverMessage: String? = null,
     val isLoading: Boolean = true,
@@ -48,9 +54,20 @@ data class HyConnectUiState(
 
 class HyConnectViewModel(
     private val repository: HyConnectRepository,
+    private val habitStore: DrivingHabitStore,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HyConnectUiState())
     val uiState: StateFlow<HyConnectUiState> = _uiState.asStateFlow()
+
+    // 한 주행 세션의 운전습관 집계기(메모리). 세션 종료 시 결과를 habitStore에 누적한다.
+    private val habitAnalyzer = DrivingHabitAnalyzer()
+
+    /** SDK 신호(속도/조향각/주행상태)를 운전습관 분석으로 라우팅하는 싱크. Activity가 SDK에 연결한다. */
+    val habitSignalListener: DrivingHabitSignalListener = object : DrivingHabitSignalListener {
+        override fun onSpeed(metersPerSec: Float) = habitAnalyzer.onSpeed(metersPerSec)
+        override fun onSteeringAngle(angleDeg: Float) = habitAnalyzer.onSteeringAngle(angleDeg)
+        override fun onDrivingStateChanged(isDriving: Boolean) = handleDrivingStateChange(isDriving)
+    }
 
     // 음성 안내(TTS) 멘트 1회성 이벤트. Activity가 수집해 VoiceGuideClient.speak로 출력한다.
     // 화면이 보유하지 않는 Context 의존(SDK)을 ViewModel에서 분리하기 위한 단방향 이벤트 채널이다.
@@ -75,6 +92,33 @@ class HyConnectViewModel(
 
     init {
         refresh()
+        // 로컬 운전습관 프로파일을 구독해 UI에 반영한다(초기화 버튼 결과도 자동 반영된다).
+        viewModelScope.launch {
+            habitStore.profile.collect { profile ->
+                _uiState.update { it.copy(drivingHabit = profile) }
+            }
+        }
+    }
+
+    /**
+     * 주행/정차 상태 변경 시 운전습관 세션을 시작/종료한다.
+     * 정차/주차로 세션이 끝나면 집계 결과를 로컬에 누적한다.
+     */
+    private fun handleDrivingStateChange(isDriving: Boolean) {
+        if (isDriving) {
+            if (!habitAnalyzer.isActive) habitAnalyzer.startSession()
+        } else {
+            val session = habitAnalyzer.finishSession() ?: return
+            viewModelScope.launch { habitStore.recordSession(session) }
+        }
+    }
+
+    /** "주행습관 기록 초기화" 버튼. 로컬 누적 기록을 모두 삭제한다(구독으로 UI 자동 갱신). */
+    fun resetDrivingHabit() {
+        viewModelScope.launch {
+            habitStore.reset()
+            _voiceEvents.tryEmit("주행 습관 기록을 초기화했어요.")
+        }
     }
 
     /**
@@ -173,7 +217,9 @@ class HyConnectViewModel(
     private fun loadSufficientDashboard() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val result = repository.getSufficientDashboard()
+            // 누적 운전습관을 함께 보내 서버가 Gemini로 개인화 인사이트를 만들게 한다.
+            val habit = habitStore.snapshot()
+            val result = repository.getSufficientDashboard(habit)
             val dashboard = result.dataOrFallback(_uiState.value.dashboard)
             Log.d("HyConnect", "SUFFICIENT dashboard loaded=${dashboard != null}")
             _uiState.update { state ->
@@ -270,11 +316,12 @@ class HyConnectViewModel(
     @Suppress("UNCHECKED_CAST")
     class Factory(
         private val repository: HyConnectRepository,
+        private val habitStore: DrivingHabitStore,
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             // TODO: Hilt/Koin 등 DI를 도입하면 ViewModel 의존성 주입을 프레임워크로 교체한다.
             if (modelClass.isAssignableFrom(HyConnectViewModel::class.java)) {
-                return HyConnectViewModel(repository) as T
+                return HyConnectViewModel(repository, habitStore) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

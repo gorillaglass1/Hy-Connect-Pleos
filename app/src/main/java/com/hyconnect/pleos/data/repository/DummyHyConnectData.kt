@@ -12,6 +12,7 @@ import com.hyconnect.pleos.data.model.MetricTone
 import com.hyconnect.pleos.data.model.RecommendedStationCard
 import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
+import com.hyconnect.pleos.vehicle.habit.DrivingHabitProfile
 
 object DummyHyConnectData {
     // 테스트용: 주행거리 500km(>임계값 100) + 잔량 83% → SUFFICIENT 모드로 진입해 연료 충분 대시보드를 보여준다.
@@ -20,6 +21,21 @@ object DummyHyConnectData {
         vehicleRangeKm = 500,
         fuelPercent = 83,
         message = "현재 경로 기준 충전 없이 약 5시간 주행할 수 있습니다.",
+    )
+
+    /**
+     * 단독 실행/프리뷰용 더미 운전습관 프로파일.
+     * 12회 주행·약 6시간 누적, 평균 78점(MODERATE) → 상단 점수 패널이 채워진 상태로 보인다.
+     * (cumulativeScore = avgScore 78 × 12세션 = 936)
+     */
+    val drivingHabit = DrivingHabitProfile(
+        totalSessions = 12,
+        totalDrivingMinutes = 372,
+        harshAccelCount = 8,
+        harshBrakeCount = 5,
+        incautiousCount = 3,
+        cumulativeScore = 936,
+        lastUpdatedEpochMs = 0L,
     )
 
     /** 서버 미연동 시 연료 충분 화면 검증용 데모 대시보드(예시 JSON과 동일 구성). */

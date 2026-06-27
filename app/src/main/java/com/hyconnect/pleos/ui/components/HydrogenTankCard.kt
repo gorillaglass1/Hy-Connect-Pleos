@@ -1,8 +1,6 @@
 package com.hyconnect.pleos.ui.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,9 +26,9 @@ import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.ui.theme.HyBlue
 import com.hyconnect.pleos.ui.theme.HyBorder
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
-import com.hyconnect.pleos.ui.theme.HySurface
 import com.hyconnect.pleos.ui.theme.HyTankRest
 import com.hyconnect.pleos.ui.theme.HyTextSecondary
+import com.hyconnect.pleos.ui.theme.hyCard
 
 @Composable
 fun HydrogenTankCard(
@@ -43,9 +41,8 @@ fun HydrogenTankCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(HySurface, RoundedCornerShape(16.dp))
-            .border(1.dp, HyBorder, RoundedCornerShape(16.dp))
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .hyCard(corner = 18.dp)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

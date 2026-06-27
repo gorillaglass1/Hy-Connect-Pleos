@@ -37,8 +37,8 @@ import com.hyconnect.pleos.ui.theme.HyTextMuted
 import com.hyconnect.pleos.ui.theme.HyTextPrimary
 import com.hyconnect.pleos.ui.theme.HyTextSecondary
 import com.hyconnect.pleos.ui.theme.HyWarn
-import com.hyconnect.pleos.ui.theme.HyWarnBorder
 import com.hyconnect.pleos.ui.theme.HyWarnSoft
+import com.hyconnect.pleos.ui.theme.hyCard
 
 /**
  * 연료가 임계값 이하일 때 상단에 띄우는 경고 배너.
@@ -53,9 +53,9 @@ fun LowFuelBanner(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(HyWarnSoft, RoundedCornerShape(18.dp))
-            .border(1.dp, HyWarnBorder, RoundedCornerShape(18.dp))
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .background(HyWarnSoft, RoundedCornerShape(24.dp))
+            .border(2.dp, HyWarn, RoundedCornerShape(24.dp))
+            .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -170,8 +170,7 @@ fun DashboardPlaceholder(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(HySurface, RoundedCornerShape(22.dp))
-            .border(1.dp, HyBorder, RoundedCornerShape(22.dp)),
+            .hyCard(corner = 24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

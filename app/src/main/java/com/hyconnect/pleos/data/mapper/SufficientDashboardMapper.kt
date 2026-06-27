@@ -36,8 +36,8 @@ fun SufficientDashboardDto.toSufficientDashboard(): SufficientDashboard {
 
 private fun AiInsightDto?.toAiInsight(): AiInsight =
     AiInsight(
-        // nearest-recommendation 응답에는 갱신 시각이 없다.
-        updatedAt = null,
+        // Gemini가 생성 시각을 내려주면 카드에 "HH:mm 업데이트"로 표기한다.
+        updatedAt = this?.updatedAt,
         status = FuelStatus.from(this?.status),
         statusLabel = this?.statusLabel.orEmpty(),
         subtitle = this?.subtitle.orEmpty(),
@@ -50,8 +50,8 @@ private fun InsightMetricDto.toInsightMetric(): InsightMetric =
         label = label.orEmpty(),
         value = value.orEmpty(),
         unit = unit?.takeIf { it.isNotBlank() },
-        // 응답에 tone이 없으므로 중립으로 둔다(강조 색 없음).
-        tone = MetricTone.NEUTRAL,
+        // tone이 없으면 중립(강조 색 없음).
+        tone = MetricTone.from(tone),
     )
 
 private fun RecommendedStationCardDto.toRecommendedStationCard(): RecommendedStationCard =

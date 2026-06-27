@@ -38,6 +38,7 @@ import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.ui.theme.HySurface
 import com.hyconnect.pleos.ui.theme.HyTextPrimary
 import com.hyconnect.pleos.ui.theme.HyTextSecondary
+import com.hyconnect.pleos.ui.theme.hyCard
 
 @Composable
 fun StationListCard(
@@ -53,8 +54,7 @@ fun StationListCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(HySurface, RoundedCornerShape(22.dp))
-            .border(1.dp, HyBorder, RoundedCornerShape(22.dp))
+            .hyCard(corner = 24.dp)
             .padding(horizontal = 22.dp, vertical = 20.dp),
     ) {
         Row(

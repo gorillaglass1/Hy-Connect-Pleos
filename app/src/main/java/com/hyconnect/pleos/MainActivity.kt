@@ -40,7 +40,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private val viewModel: HyConnectViewModel by viewModels {
-        HyConnectViewModel.Factory((application as HyConnectApplication).repository)
+        HyConnectViewModel.Factory(
+            (application as HyConnectApplication).repository,
+            (application as HyConnectApplication).drivingHabitStore,
+        )
     }
 
     // 음성 추천 확인 대기 중인 충전소. 안내 종료 후 마이크로 받은 답변을 이 충전소에 적용한다.
@@ -65,7 +68,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         navigationClient.initialize()
         vehicleSdkClient.initialize()
-        vehicleSdkClient.registerListeners(rangeTrigger)
+        // 운전습관 신호(속도/조향각/주행상태)도 함께 구독해 ViewModel의 분석기로 전달한다.
+        vehicleSdkClient.registerListeners(rangeTrigger, viewModel.habitSignalListener)
         voiceGuideClient.initialize()
         voiceInputClient.initialize()
         // 2단계 대화형 경유지 추가: 추천 안내가 끝나면 마이크를 열어 응/아니요를 받는다.
@@ -148,6 +152,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onRefreshClick = viewModel::refresh,
                     onDashboardNavigate = { card -> addWaypoint(card.toHydrogenStation()) },
+                    onResetHabit = viewModel::resetDrivingHabit,
                 )
             }
         }

@@ -56,6 +56,8 @@ android {
         compose = true
         buildConfig = true
     }
+    // 운전습관 분석용 차량 속도(PERF_VEHICLE_SPEED_DISPLAY)는 Google android.car로 받는다.
+    useLibrary("android.car")
 }
 
 dependencies {
@@ -75,6 +77,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.kotlinx.coroutines.android)
+    // 운전습관 프로파일 로컬 영속 저장.
+    implementation(libs.androidx.datastore.preferences)
     implementation("ai.pleos.playground:NaviHelper:2.0.3")
     implementation("ai.pleos.playground:Vehicle:2.0.3")
     // Gleo AI 음성 안내(TTS)·음성 입력(STT). 정책상 OnDevice 모드만 사용한다.
