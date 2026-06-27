@@ -79,6 +79,28 @@ class SufficientDashboardMapperTest {
         assertEquals("1156020121HS2019014", actions[0].stationId)
     }
 
+    /** 서버가 뱃지를 붙여주면 그대로 유지한다(빈 문자열은 숨김). */
+    @Test
+    fun serverBadgeIsKept() {
+        val withBadge = gson.fromJson(
+            serverResponseJson.replace(
+                "\"name\": \"H국회수소충전소\",",
+                "\"name\": \"H국회수소충전소\",\n        \"badge\": \"근처 최저가\",",
+            ),
+            SufficientDashboardDto::class.java,
+        )
+        assertEquals("근처 최저가", withBadge.toSufficientDashboard().recommendedStation?.badge)
+
+        val blankBadge = gson.fromJson(
+            serverResponseJson.replace(
+                "\"name\": \"H국회수소충전소\",",
+                "\"name\": \"H국회수소충전소\",\n        \"badge\": \"   \",",
+            ),
+            SufficientDashboardDto::class.java,
+        )
+        assertNull(blankBadge.toSufficientDashboard().recommendedStation?.badge)
+    }
+
     @Test
     fun noStationProducesNoActions() {
         val dto = gson.fromJson(

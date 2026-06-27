@@ -62,7 +62,7 @@ object DummyHyConnectData {
             stationId = "ST_SANGAM_001",
             name = "상암 수소충전소",
             address = "서울 마포구 상암동",
-            badge = "근처 최저가",
+            badge = null,
             realtimePrice = true,
             distanceKm = 2.4,
             etaMinutes = 8,

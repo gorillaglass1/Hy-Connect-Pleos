@@ -59,8 +59,9 @@ private fun RecommendedStationCardDto.toRecommendedStationCard(): RecommendedSta
         stationId = chrstnMno.orEmpty(),
         name = name.orEmpty(),
         address = roadNmAddr.orEmpty(),
-        // 아래 세 값은 nearest-recommendation 응답에 없어 클라이언트 기본값을 쓴다.
-        badge = null,
+        // 서버가 붙여준 뱃지가 있으면 유지하고, 없으면(빈 문자열 포함) 칩을 숨긴다.
+        badge = badge?.takeIf { it.isNotBlank() },
+        // 아래 두 값은 nearest-recommendation 응답에 없어 클라이언트 기본값을 쓴다.
         realtimePrice = false,
         etaMinutes = 0,
         available = true,

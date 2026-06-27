@@ -131,6 +131,9 @@ data class RecommendedStationCardDto(
     val name: String?,
     @SerializedName("road_nm_addr")
     val roadNmAddr: String?,
+    // 서버가 붙여주는 뱃지 라벨(예: "근처 최저가"). 없으면 카드에서 칩을 숨긴다.
+    @SerializedName("badge")
+    val badge: String?,
     @SerializedName("distance_km")
     val distanceKm: Double?,
     @SerializedName("ntsl_pc")
