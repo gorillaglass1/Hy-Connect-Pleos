@@ -16,9 +16,16 @@ data class DrivingHabitProfile(
     val incautiousCount: Int = 0,
     // 세션 종료 점수의 누적합. 평균 점수 산출에 쓴다.
     val cumulativeScore: Long = 0,
+    // 누적 주행 포인트(리워드). 세션마다 [DrivingSession.points]만큼 불어난다.
+    val totalPoints: Long = 0,
+    // 가장 최근 세션이 적립한 포인트("이번 주행 +85P" 표시용). 기록이 없으면 0.
+    val lastSessionPoints: Int = 0,
     val lastUpdatedEpochMs: Long = 0,
 ) {
     val totalEvents: Int get() = harshAccelCount + harshBrakeCount + incautiousCount
+
+    /** 누적 포인트로 환산한 현재 운전자 레벨. 포인트 패널의 레벨/진행 바에 쓴다. */
+    val drivingLevel: DrivingLevel get() = DrivingLevel.forPoints(totalPoints)
 
     /** 세션 평균 점수(0~100). 기록이 없으면 만점 기준값을 반환한다. */
     val avgScore: Int
@@ -52,6 +59,8 @@ data class DrivingHabitProfile(
         harshBrakeCount = harshBrakeCount + session.harshBrakeCount,
         incautiousCount = incautiousCount + session.incautiousCount,
         cumulativeScore = cumulativeScore + session.score,
+        totalPoints = totalPoints + session.points,
+        lastSessionPoints = session.points,
         lastUpdatedEpochMs = nowMs,
     )
 

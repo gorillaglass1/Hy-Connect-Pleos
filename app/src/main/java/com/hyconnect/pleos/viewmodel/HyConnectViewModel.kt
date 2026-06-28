@@ -10,18 +10,27 @@ import com.hyconnect.pleos.data.model.SufficientDashboard
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.network.NetworkResult
 import com.hyconnect.pleos.data.repository.HyConnectRepository
+import com.hyconnect.pleos.settings.RefreshSettings
+import com.hyconnect.pleos.settings.RefreshSettingsStore
 import com.hyconnect.pleos.vehicle.habit.DrivingHabitAnalyzer
 import com.hyconnect.pleos.vehicle.habit.DrivingHabitProfile
 import com.hyconnect.pleos.vehicle.habit.DrivingHabitSignalListener
 import com.hyconnect.pleos.vehicle.habit.DrivingHabitStore
+import com.hyconnect.pleos.vehicle.habit.LiveDrivingSession
 import com.hyconnect.pleos.voice.withJosa
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -42,8 +51,12 @@ data class HyConnectUiState(
     val dashboard: SufficientDashboard? = null,
     // 로컬 누적 운전습관 프로파일. 상단 운전 점수 패널에 표시하고 서버 개인화 요청에도 쓴다.
     val drivingHabit: DrivingHabitProfile = DrivingHabitProfile(),
+    // 진행 중인 주행 세션의 실시간 상태. 감점이 생길 때마다 갱신돼 "현재 주행" 표시에 쓴다.
+    val liveSession: LiveDrivingSession = LiveDrivingSession(),
     val nlQuery: String = DEFAULT_NL_QUERY,
     val driverMessage: String? = null,
+    // 화면별 자동 새로고침 주기 설정(설정 화면에서 변경). 주기적 재요청 루프가 이 값을 따른다.
+    val refreshSettings: RefreshSettings = RefreshSettings(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
 ) {
@@ -55,12 +68,18 @@ data class HyConnectUiState(
 class HyConnectViewModel(
     private val repository: HyConnectRepository,
     private val habitStore: DrivingHabitStore,
+    private val refreshSettingsStore: RefreshSettingsStore,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HyConnectUiState())
     val uiState: StateFlow<HyConnectUiState> = _uiState.asStateFlow()
 
     // 한 주행 세션의 운전습관 집계기(메모리). 세션 종료 시 결과를 habitStore에 누적한다.
     private val habitAnalyzer = DrivingHabitAnalyzer()
+
+    // 진행 중인 네트워크 요청 추적. 화면 진입 직후 여러 트리거(refresh + SDK 거리 통지)가
+    // 같은 요청을 동시에 쏘아 서버가 과부하/타임아웃되는 것을 막는다(같은 요청은 1건만 유지).
+    private var dashboardJob: Job? = null
+    private var recommendationJob: Job? = null
 
     /** SDK 신호(속도/조향각/주행상태)를 운전습관 분석으로 라우팅하는 싱크. Activity가 SDK에 연결한다. */
     val habitSignalListener: DrivingHabitSignalListener = object : DrivingHabitSignalListener {
@@ -92,12 +111,66 @@ class HyConnectViewModel(
 
     init {
         refresh()
+        // 감점 사유(급가속/급정거/부주의)가 발생할 때마다 현재 세션 상태를 UI에 즉시 반영한다.
+        habitAnalyzer.onSessionUpdate = { live ->
+            _uiState.update { it.copy(liveSession = live) }
+        }
         // 로컬 운전습관 프로파일을 구독해 UI에 반영한다(초기화 버튼 결과도 자동 반영된다).
         viewModelScope.launch {
             habitStore.profile.collect { profile ->
                 _uiState.update { it.copy(drivingHabit = profile) }
             }
         }
+        // 자동 새로고침 주기 설정을 구독해 UI(설정 화면)에 반영한다.
+        viewModelScope.launch {
+            refreshSettingsStore.settings.collect { settings ->
+                _uiState.update { it.copy(refreshSettings = settings) }
+            }
+        }
+        startAutoRefreshLoop()
+    }
+
+    /**
+     * 현재 화면(연료 모드)과 설정 주기에 맞춰 주기적으로 추천/대시보드를 재요청한다.
+     *
+     * 연료가 적은 추천 화면(LOW)에서는 주행으로 위치가 바뀌어도 현재 위치 기준으로 충전소를 다시
+     * 추천하기 위해 [RefreshSettings.lowRefreshSec]마다 재요청한다(기본 300초). 메인 대시보드
+     * (SUFFICIENT)는 [RefreshSettings.dashboardRefreshSec]를 따르며 기본값은 비활성화다.
+     *
+     * 모드나 설정이 바뀌면 [collectLatest]가 진행 중이던 대기 루프를 취소하고 새 주기로 다시 시작한다.
+     */
+    private fun startAutoRefreshLoop() {
+        viewModelScope.launch {
+            combine(
+                uiState.map { it.fuelMode }.distinctUntilChanged(),
+                refreshSettingsStore.settings,
+            ) { mode, settings -> mode to settings }
+                .collectLatest { (mode, settings) ->
+                    val intervalSec = when (mode) {
+                        FuelMode.LOW -> settings.lowRefreshSec
+                        FuelMode.SUFFICIENT -> settings.dashboardRefreshSec
+                    }
+                    if (intervalSec <= RefreshSettings.DISABLED) return@collectLatest // 비활성화
+                    while (true) {
+                        delay(intervalSec * 1000L)
+                        Log.d("HyConnect", "auto-refresh ($mode, ${intervalSec}s)")
+                        when (mode) {
+                            FuelMode.LOW -> loadRecommendations(silent = true)
+                            FuelMode.SUFFICIENT -> loadSufficientDashboard(silent = true)
+                        }
+                    }
+                }
+        }
+    }
+
+    /** 설정 화면에서 추천 화면(LOW) 자동 새로고침 주기(초)를 변경한다. 0이면 비활성화. */
+    fun setLowRefreshSec(seconds: Int) {
+        viewModelScope.launch { refreshSettingsStore.setLowRefreshSec(seconds) }
+    }
+
+    /** 설정 화면에서 메인 대시보드(SUFFICIENT) 자동 새로고침 주기(초)를 변경한다. 0이면 비활성화. */
+    fun setDashboardRefreshSec(seconds: Int) {
+        viewModelScope.launch { refreshSettingsStore.setDashboardRefreshSec(seconds) }
     }
 
     /**
@@ -110,6 +183,8 @@ class HyConnectViewModel(
         } else {
             val session = habitAnalyzer.finishSession() ?: return
             viewModelScope.launch { habitStore.recordSession(session) }
+            // 적립 포인트를 음성으로 안내한다(예: "이번 주행으로 85포인트를 적립했어요").
+            _voiceEvents.tryEmit("이번 주행으로 ${session.points}포인트를 적립했어요.")
         }
     }
 
@@ -189,10 +264,17 @@ class HyConnectViewModel(
         }
     }
 
-    /** 현재 주행가능거리를 기준으로 자연어 충전소 추천을 받아 LOW 화면을 채운다. */
-    private fun loadRecommendations() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+    /**
+     * 현재 주행가능거리를 기준으로 자연어 충전소 추천을 받아 LOW 화면을 채운다.
+     *
+     * [silent]=true(주기적 자동 새로고침)일 때는 로딩 표시와 음성 안내·경유지 확인 마이크 흐름을 건너뛰고
+     * 목록만 조용히 갱신한다. 5분마다 안내가 반복되거나 마이크가 다시 열리는 것을 막기 위함이다.
+     */
+    private fun loadRecommendations(silent: Boolean = false) {
+        // 같은 추천 요청이 이미 진행 중이면 중복 발사를 막는다(동시 요청·타임아웃 방지).
+        if (recommendationJob?.isActive == true) return
+        recommendationJob = viewModelScope.launch {
+            if (!silent) _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val range = _uiState.value.vehicleState.vehicleRangeKm
             val recResult = repository.getNlRecommendedStations(
                 nlQuery = _uiState.value.nlQuery,
@@ -209,14 +291,20 @@ class HyConnectViewModel(
                     errorMessage = recResult.errorOrNull(),
                 )
             }
-            announceRecommendation(recommendation)
+            if (!silent) announceRecommendation(recommendation)
         }
     }
 
-    /** 연료 충분 화면의 서버 드리븐 대시보드를 불러온다. 서버 fuelPercent로 헤더 게이지도 맞춘다. */
-    private fun loadSufficientDashboard() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+    /**
+     * 연료 충분 화면의 서버 드리븐 대시보드를 불러온다. 서버 fuelPercent로 헤더 게이지도 맞춘다.
+     *
+     * [silent]=true(주기적 자동 새로고침)일 때는 로딩 표시를 건너뛰고 내용만 조용히 갱신한다.
+     */
+    private fun loadSufficientDashboard(silent: Boolean = false) {
+        // 같은 대시보드 요청이 이미 진행 중이면 중복 발사를 막는다(동시 요청·타임아웃 방지).
+        if (dashboardJob?.isActive == true) return
+        dashboardJob = viewModelScope.launch {
+            if (!silent) _uiState.update { it.copy(isLoading = true) }
             // 누적 운전습관을 함께 보내 서버가 Gemini로 개인화 인사이트를 만들게 한다.
             val habit = habitStore.snapshot()
             val result = repository.getSufficientDashboard(habit)
@@ -317,11 +405,12 @@ class HyConnectViewModel(
     class Factory(
         private val repository: HyConnectRepository,
         private val habitStore: DrivingHabitStore,
+        private val refreshSettingsStore: RefreshSettingsStore,
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             // TODO: Hilt/Koin 등 DI를 도입하면 ViewModel 의존성 주입을 프레임워크로 교체한다.
             if (modelClass.isAssignableFrom(HyConnectViewModel::class.java)) {
-                return HyConnectViewModel(repository, habitStore) as T
+                return HyConnectViewModel(repository, habitStore, refreshSettingsStore) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

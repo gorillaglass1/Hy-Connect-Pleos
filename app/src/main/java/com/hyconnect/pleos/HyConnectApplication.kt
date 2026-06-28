@@ -7,6 +7,7 @@ import com.hyconnect.pleos.data.repository.DummyHyConnectData
 import com.hyconnect.pleos.data.repository.DummyHyConnectRepository
 import com.hyconnect.pleos.data.repository.HyConnectRepository
 import com.hyconnect.pleos.data.repository.HyConnectRepositoryImpl
+import com.hyconnect.pleos.settings.RefreshSettingsStore
 import com.hyconnect.pleos.vehicle.habit.DrivingHabitStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +25,9 @@ class HyConnectApplication : Application() {
 
     // 운전습관 로컬 영속 저장소(DataStore). ViewModel과 SDK 신호 라우팅이 공유한다.
     val drivingHabitStore: DrivingHabitStore by lazy { DrivingHabitStore(this) }
+
+    // 화면별 자동 새로고침 주기 설정 저장소(DataStore).
+    val refreshSettingsStore: RefreshSettingsStore by lazy { RefreshSettingsStore(this) }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

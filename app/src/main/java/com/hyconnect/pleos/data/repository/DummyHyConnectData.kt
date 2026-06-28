@@ -27,6 +27,7 @@ object DummyHyConnectData {
      * 단독 실행/프리뷰용 더미 운전습관 프로파일.
      * 12회 주행·약 6시간 누적, 평균 78점(MODERATE) → 상단 점수 패널이 채워진 상태로 보인다.
      * (cumulativeScore = avgScore 78 × 12세션 = 936)
+     * 누적 포인트 3,480P → Lv.4(베테랑 드라이버), 다음 레벨까지 520P.
      */
     val drivingHabit = DrivingHabitProfile(
         totalSessions = 12,
@@ -35,6 +36,8 @@ object DummyHyConnectData {
         harshBrakeCount = 5,
         incautiousCount = 3,
         cumulativeScore = 936,
+        totalPoints = 3_480,
+        lastSessionPoints = 85,
         lastUpdatedEpochMs = 0L,
     )
 

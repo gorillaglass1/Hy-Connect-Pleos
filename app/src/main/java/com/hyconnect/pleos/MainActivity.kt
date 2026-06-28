@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
         HyConnectViewModel.Factory(
             (application as HyConnectApplication).repository,
             (application as HyConnectApplication).drivingHabitStore,
+            (application as HyConnectApplication).refreshSettingsStore,
         )
     }
 
@@ -153,6 +154,8 @@ class MainActivity : ComponentActivity() {
                     onRefreshClick = viewModel::refresh,
                     onDashboardNavigate = { card -> addWaypoint(card.toHydrogenStation()) },
                     onResetHabit = viewModel::resetDrivingHabit,
+                    onLowRefreshChange = viewModel::setLowRefreshSec,
+                    onDashboardRefreshChange = viewModel::setDashboardRefreshSec,
                 )
             }
         }

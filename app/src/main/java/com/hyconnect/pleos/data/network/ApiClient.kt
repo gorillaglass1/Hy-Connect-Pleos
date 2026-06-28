@@ -17,9 +17,10 @@ object ApiClient {
     }
 
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(3, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .writeTimeout(5, TimeUnit.SECONDS)
+        // 실서버(Cloud Run 콜드스타트/Gemini 생성 지연)와 동시 요청 시 5초로는 부족해 타임아웃→폴백이 잦았다.
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
         .addInterceptor(loggingInterceptor)
         // TODO: 로그인/회원가입 및 JWT/세션이 생기면 Authorization 헤더 인터셉터를 추가한다.
         .build()

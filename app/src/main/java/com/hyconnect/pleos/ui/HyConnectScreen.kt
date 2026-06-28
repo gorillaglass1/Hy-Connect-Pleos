@@ -1,6 +1,8 @@
 package com.hyconnect.pleos.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,7 @@ import com.hyconnect.pleos.data.model.HydrogenStation
 import com.hyconnect.pleos.data.model.RecommendedStationCard
 import com.hyconnect.pleos.data.model.VehicleState
 import com.hyconnect.pleos.data.repository.DummyHyConnectData
+import com.hyconnect.pleos.ui.components.RefreshSettingsDialog
 import com.hyconnect.pleos.ui.components.DrivingHabitDashboard
 import com.hyconnect.pleos.ui.components.HydrogenTankCard
 import com.hyconnect.pleos.ui.components.LowFuelBanner
@@ -39,9 +43,11 @@ import com.hyconnect.pleos.ui.components.WaypointConfirmDialog
 import com.hyconnect.pleos.ui.theme.HyBackground
 import com.hyconnect.pleos.ui.theme.HyBlue
 import com.hyconnect.pleos.ui.theme.HyBlueSoft
+import com.hyconnect.pleos.ui.theme.HyBorderStrong
 import com.hyconnect.pleos.ui.theme.HyConnectTheme
 import com.hyconnect.pleos.ui.theme.HySurface
 import com.hyconnect.pleos.ui.theme.HyTextPrimary
+import com.hyconnect.pleos.ui.theme.HyTextSecondary
 import com.hyconnect.pleos.ui.theme.HyWarnSoft
 import com.hyconnect.pleos.ui.theme.hyCard
 import com.hyconnect.pleos.viewmodel.FuelMode
@@ -59,10 +65,14 @@ fun HyConnectScreen(
     onRefreshClick: () -> Unit,
     onDashboardNavigate: (RecommendedStationCard) -> Unit,
     onResetHabit: () -> Unit,
+    onLowRefreshChange: (Int) -> Unit,
+    onDashboardRefreshChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // 경유지로 추가하기 전 확인 팝업 대상. null이면 팝업을 숨긴다.
     var pendingStation by remember { mutableStateOf<HydrogenStation?>(null) }
+    // 자동 새로고침 설정 팝업 표시 여부.
+    var showSettings by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -90,7 +100,7 @@ fun HyConnectScreen(
                     .fillMaxSize()
                     .padding(24.dp),
             ) {
-                Toolbar()
+                Toolbar(onSettingsClick = { showSettings = true })
                 Spacer(modifier = Modifier.height(16.dp))
                 HydrogenTankCard(vehicleState = uiState.vehicleState)
                 Spacer(modifier = Modifier.height(14.dp))
@@ -113,6 +123,8 @@ fun HyConnectScreen(
                 FuelMode.SUFFICIENT -> DrivingHabitDashboard(
                     // 상단: 안전운전 앱 스타일 주행 습관 점수 패널(+기록 초기화)
                     habit = uiState.drivingHabit,
+                    // 진행 중인 세션의 실시간 감점 상태(현재 주행 표시)
+                    live = uiState.liveSession,
                     // 하단: Gemini 개인화 충전 인사이트 + 추천 충전소(로드 전이면 플레이스홀더)
                     dashboard = uiState.dashboard,
                     onNavigate = onDashboardNavigate,
@@ -132,6 +144,15 @@ fun HyConnectScreen(
                 pendingStation = null
             },
             onDismiss = { pendingStation = null },
+        )
+    }
+
+    if (showSettings) {
+        RefreshSettingsDialog(
+            settings = uiState.refreshSettings,
+            onLowChange = onLowRefreshChange,
+            onDashboardChange = onDashboardRefreshChange,
+            onDismiss = { showSettings = false },
         )
     }
 }
@@ -171,7 +192,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.LowFuelContent(
 }
 
 @Composable
-private fun Toolbar() {
+private fun Toolbar(onSettingsClick: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         // 샘플 VehicleToolbar의 아이콘+타이틀 구성을 차용한 로고 칩.
         Box(
@@ -194,6 +215,22 @@ private fun Toolbar() {
             fontSize = 26.sp,
             fontWeight = FontWeight.W700,
         )
+        Spacer(modifier = Modifier.weight(1f))
+        // 자동 새로고침 주기 설정 진입 버튼.
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .border(1.dp, HyBorderStrong, RoundedCornerShape(12.dp))
+                .clickable(onClick = onSettingsClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "⚙",
+                color = HyTextSecondary,
+                fontSize = 22.sp,
+            )
+        }
     }
 }
 
@@ -222,6 +259,8 @@ private fun HyConnectScreenLowPreview() {
             onRefreshClick = {},
             onDashboardNavigate = {},
             onResetHabit = {},
+            onLowRefreshChange = {},
+            onDashboardRefreshChange = {},
         )
     }
 }
@@ -251,6 +290,8 @@ private fun HyConnectScreenSufficientPreview() {
             onRefreshClick = {},
             onDashboardNavigate = {},
             onResetHabit = {},
+            onLowRefreshChange = {},
+            onDashboardRefreshChange = {},
         )
     }
 }

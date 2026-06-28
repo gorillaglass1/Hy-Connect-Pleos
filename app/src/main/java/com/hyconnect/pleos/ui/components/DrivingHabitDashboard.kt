@@ -1,6 +1,8 @@
 package com.hyconnect.pleos.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +38,7 @@ import com.hyconnect.pleos.ui.theme.HyWarnSoft
 import com.hyconnect.pleos.ui.theme.hyCard
 import com.hyconnect.pleos.vehicle.habit.DrivingHabitProfile
 import com.hyconnect.pleos.vehicle.habit.DrivingStyle
+import com.hyconnect.pleos.vehicle.habit.LiveDrivingSession
 
 /**
  * 연료 충분 화면.
@@ -44,6 +48,7 @@ import com.hyconnect.pleos.vehicle.habit.DrivingStyle
 @Composable
 fun DrivingHabitDashboard(
     habit: DrivingHabitProfile,
+    live: LiveDrivingSession,
     dashboard: SufficientDashboard?,
     onNavigate: (RecommendedStationCard) -> Unit,
     onResetHabit: () -> Unit,
@@ -55,10 +60,11 @@ fun DrivingHabitDashboard(
     ) {
         DrivingScorePanel(
             habit = habit,
+            live = live,
             onResetHabit = onResetHabit,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1.2f),
         )
         if (dashboard != null) {
             SufficientDashboardCard(
@@ -66,13 +72,13 @@ fun DrivingHabitDashboard(
                 onNavigate = onNavigate,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1.4f),
+                    .weight(1.3f),
             )
         } else {
             DashboardPlaceholder(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1.4f),
+                    .weight(1.3f),
             )
         }
     }
@@ -81,10 +87,15 @@ fun DrivingHabitDashboard(
 @Composable
 private fun DrivingScorePanel(
     habit: DrivingHabitProfile,
+    live: LiveDrivingSession,
     onResetHabit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val accent = habit.style.accentColor()
+    // 화면에 보이는 감점 카운트는 "누적 + 현재 주행"이다. 감점이 생기면 즉시 한 칸 오른다.
+    val accelCount = habit.harshAccelCount + live.harshAccelCount
+    val brakeCount = habit.harshBrakeCount + live.harshBrakeCount
+    val incautiousCount = habit.incautiousCount + live.incautiousCount
     Box(modifier = modifier.hyCard(corner = 24.dp)) {
         // 주행 습관 스타일에 따른 PLEOS 그라데이션 글로우(안정=그린/보통=블루/거침=오렌지).
         PleosGlow(
@@ -94,10 +105,13 @@ private fun DrivingScorePanel(
                 .fillMaxWidth()
                 .height(200.dp),
         )
+        // 콘텐츠가 패널 높이를 넘으면 잘리지 않고 스크롤된다(작은 디스플레이/큰 글꼴 대비 안전장치).
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(22.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -106,33 +120,35 @@ private fun DrivingScorePanel(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                // 주행 중에는 현재 세션의 실시간 진행 점수를 칩으로 보여준다(감점 시 즉시 하락).
+                if (live.active) LiveDrivingChip(runningScore = live.runningScore)
                 Spacer(modifier = Modifier.weight(1f))
                 // 주행습관 기록 초기화 버튼.
                 TextButton(onClick = onResetHabit) {
                     Text(text = "기록 초기화", color = HyTextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = if (habit.hasData) habit.avgScore.toString() else "--",
                     color = accent,
-                    fontSize = 72.sp,
+                    fontSize = 52.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
                 Text(
                     text = "점",
                     color = accent,
-                    fontSize = 32.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(start = 6.dp, bottom = 10.dp),
+                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = habit.style.label(),
                         color = accent,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -143,7 +159,8 @@ private fun DrivingScorePanel(
                     )
                 }
             }
-            Spacer(modifier = Modifier.weight(1f))
+            // 누적 주행 포인트 + 레벨 진행 바(잘 달릴수록 쌓이는 리워드).
+            DrivingPointsCard(habit = habit)
             // 주행 습관 상태를 알리는 플로팅 배너(샘플 안전운전 앱의 경고 토스트 룩).
             PleosBanner(
                 title = habit.style.bannerTitle(),
@@ -151,13 +168,104 @@ private fun DrivingScorePanel(
                 tone = habit.style.bannerTone(),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                HabitCell(label = "급가속", count = habit.harshAccelCount, modifier = Modifier.weight(1f))
-                HabitCell(label = "급정거", count = habit.harshBrakeCount, modifier = Modifier.weight(1f))
-                HabitCell(label = "부주의", count = habit.incautiousCount, modifier = Modifier.weight(1f))
+                HabitCell(label = "급가속", count = accelCount, modifier = Modifier.weight(1f))
+                HabitCell(label = "급정거", count = brakeCount, modifier = Modifier.weight(1f))
+                HabitCell(label = "부주의", count = incautiousCount, modifier = Modifier.weight(1f))
             }
         }
+    }
+}
+
+/** 누적 주행 포인트와 현재 레벨/다음 레벨까지의 진행 바를 보여주는 리워드 카드. */
+@Composable
+private fun DrivingPointsCard(habit: DrivingHabitProfile, modifier: Modifier = Modifier) {
+    val levelInfo = habit.drivingLevel
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(HyTankRest, RoundedCornerShape(18.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text(text = "누적 주행 포인트", color = HyTextMuted, fontSize = 13.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "%,d".format(habit.totalPoints),
+                        color = HyBlue,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        text = "P",
+                        color = HyBlue,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
+                    )
+                    // 가장 최근 주행이 적립한 포인트("+85P").
+                    if (habit.lastSessionPoints > 0) {
+                        Text(
+                            text = "  이번 주행 +${habit.lastSessionPoints}P",
+                            color = HyPositive,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "Lv.${levelInfo.level}",
+                    color = HyBlue,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(text = levelInfo.title, color = HyTextSecondary, fontSize = 13.sp)
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        // 다음 레벨까지의 진행 바.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .background(HyBlueSoft, RoundedCornerShape(50)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(levelInfo.progress)
+                    .height(8.dp)
+                    .background(HyBlue, RoundedCornerShape(50)),
+            )
+        }
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            text = "다음 레벨까지 ${"%,d".format(levelInfo.pointsToNext)}P",
+            color = HyTextSecondary,
+            fontSize = 12.sp,
+        )
+    }
+}
+
+/** 주행 중 현재 세션의 실시간 진행 점수 칩. 감점이 생기면 즉시 점수가 내려간다. */
+@Composable
+private fun LiveDrivingChip(runningScore: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .background(HyPositiveSoft, RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(
+            text = "주행 중 ${runningScore}점",
+            color = HyPositive,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -166,15 +274,15 @@ private fun HabitCell(label: String, count: Int, modifier: Modifier = Modifier) 
     Column(
         modifier = modifier
             .background(HyTankRest, RoundedCornerShape(16.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(text = label, color = HyTextMuted, fontSize = 13.sp)
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = count.toString(),
                 color = if (count > 0) HyWarn else HyTextPrimary,
-                fontSize = 22.sp,
+                fontSize = 19.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
             Text(
@@ -247,6 +355,7 @@ private fun DrivingHabitDashboardPreview() {
     com.hyconnect.pleos.ui.theme.HyConnectTheme {
         DrivingHabitDashboard(
             habit = com.hyconnect.pleos.data.repository.DummyHyConnectData.drivingHabit,
+            live = LiveDrivingSession(active = true, harshAccelCount = 1, runningScore = 95),
             dashboard = com.hyconnect.pleos.data.repository.DummyHyConnectData.sufficientDashboard,
             onNavigate = {},
             onResetHabit = {},
@@ -261,6 +370,7 @@ private fun DrivingHabitDashboardEmptyPreview() {
     com.hyconnect.pleos.ui.theme.HyConnectTheme {
         DrivingHabitDashboard(
             habit = DrivingHabitProfile(),
+            live = LiveDrivingSession(),
             dashboard = null,
             onNavigate = {},
             onResetHabit = {},

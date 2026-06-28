@@ -45,6 +45,8 @@ class DrivingHabitStore(private val context: Context) {
             prefs[Keys.BRAKE] = updated.harshBrakeCount
             prefs[Keys.INCAUTIOUS] = updated.incautiousCount
             prefs[Keys.CUM_SCORE] = updated.cumulativeScore
+            prefs[Keys.POINTS] = updated.totalPoints
+            prefs[Keys.LAST_POINTS] = updated.lastSessionPoints
             prefs[Keys.UPDATED] = updated.lastUpdatedEpochMs
         }
     }
@@ -67,6 +69,8 @@ class DrivingHabitStore(private val context: Context) {
             prefs[Keys.BRAKE] = profile.harshBrakeCount
             prefs[Keys.INCAUTIOUS] = profile.incautiousCount
             prefs[Keys.CUM_SCORE] = profile.cumulativeScore
+            prefs[Keys.POINTS] = profile.totalPoints
+            prefs[Keys.LAST_POINTS] = profile.lastSessionPoints
             prefs[Keys.UPDATED] = if (profile.lastUpdatedEpochMs == 0L) nowMs else profile.lastUpdatedEpochMs
         }
     }
@@ -78,6 +82,8 @@ class DrivingHabitStore(private val context: Context) {
         harshBrakeCount = this[Keys.BRAKE] ?: 0,
         incautiousCount = this[Keys.INCAUTIOUS] ?: 0,
         cumulativeScore = this[Keys.CUM_SCORE] ?: 0L,
+        totalPoints = this[Keys.POINTS] ?: 0L,
+        lastSessionPoints = this[Keys.LAST_POINTS] ?: 0,
         lastUpdatedEpochMs = this[Keys.UPDATED] ?: 0L,
     )
 
@@ -88,6 +94,8 @@ class DrivingHabitStore(private val context: Context) {
         val BRAKE = intPreferencesKey("harsh_brake")
         val INCAUTIOUS = intPreferencesKey("incautious")
         val CUM_SCORE = longPreferencesKey("cumulative_score")
+        val POINTS = longPreferencesKey("total_points")
+        val LAST_POINTS = intPreferencesKey("last_session_points")
         val UPDATED = longPreferencesKey("last_updated")
     }
 }
