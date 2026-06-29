@@ -18,6 +18,26 @@
 2. `MyApplication` 폴더 열기
 3. Gradle Sync 완료 대기
 
+> ⚠️ **클론 후 반드시 `ServerConfig.kt`를 직접 만들어야 빌드됩니다.**
+> 이 파일은 환경마다 값이 달라 `.gitignore`로 제외되어 저장소에 포함되지 않습니다. `ApiClient`가 `ServerConfig.BASE_URL`을 참조하므로, 파일이 없으면 컴파일 단계에서 실패합니다.
+>
+> - **생성 위치:** `app/src/main/java/com/hyconnect/pleos/data/network/ServerConfig.kt`
+> - **내용:** 아래 코드로 파일을 만들고 `BASE_URL`만 환경에 맞게 수정합니다. Retrofit 규칙상 주소는 반드시 `/`로 끝나야 합니다.
+>
+> ```kotlin
+> package com.hyconnect.pleos.data.network
+>
+> object ServerConfig {
+>     // 에뮬레이터에서 호스트 PC의 localhost는 10.0.2.2로 접근한다.
+>     // 실기기에서 같은 PC 서버에 붙으려면 PC의 LAN IP(예: http://192.168.0.10:8000/)로 바꾼다.
+>     const val BASE_URL: String = "http://10.0.2.2:8000/"
+> }
+> ```
+>
+> - `BASE_URL` 값은 통신 대상 서버 주소이며, **에뮬레이터**는 호스트 PC의 localhost를 `10.0.2.2`로 접근합니다. **실기기**에서 같은 PC 서버에 붙으려면 PC의 LAN IP(예: `http://192.168.0.10:8000/`)로 바꿉니다.
+>
+> 더 자세한 설명은 아래 [서버 주소 설정 (ServerConfig.kt)](#서버-주소-설정-serverconfigkt) 항목을 참고하세요.
+
 ### Gradle/SDK 참고 값
 - `compileSdk = 36`
 - `targetSdk = 36`
