@@ -105,10 +105,12 @@ class HyConnectViewModel(
      * 정차/주차로 세션이 끝나면 집계 결과를 로컬에 누적한다.
      */
     private fun handleDrivingStateChange(isDriving: Boolean) {
+        Log.d("HabitAnalyzer", "drivingState=$isDriving active=${habitAnalyzer.isActive}")
         if (isDriving) {
             if (!habitAnalyzer.isActive) habitAnalyzer.startSession()
         } else {
             val session = habitAnalyzer.finishSession() ?: return
+            Log.d("HabitAnalyzer", "session done: $session")
             viewModelScope.launch { habitStore.recordSession(session) }
         }
     }

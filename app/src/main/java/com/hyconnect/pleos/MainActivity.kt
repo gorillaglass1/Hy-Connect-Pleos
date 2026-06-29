@@ -1,11 +1,14 @@
 package com.hyconnect.pleos
 
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hyconnect.pleos.data.model.HydrogenStation
@@ -46,6 +49,14 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    // CAR_SPEED(dangerous) 런타임 권한 요청 런처. 허용되면 속도 구독을 (재)시도한다.
+    // 속도 신호가 있어야 급가속/급정거 감지가 동작하므로 onCreate에서 권한을 확인/요청한다.
+    private val speedPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            Log.d("HyConnect", "${VehicleSdkClient.SPEED_PERMISSION} granted=$granted")
+            if (granted) vehicleSdkClient.onSpeedPermissionGranted()
+        }
+
     // 음성 추천 확인 대기 중인 충전소. 안내 종료 후 마이크로 받은 답변을 이 충전소에 적용한다.
     // null이면 일반 음성 입력(검색)으로 처리한다.
     @Volatile
@@ -70,6 +81,9 @@ class MainActivity : ComponentActivity() {
         vehicleSdkClient.initialize()
         // 운전습관 신호(속도/조향각/주행상태)도 함께 구독해 ViewModel의 분석기로 전달한다.
         vehicleSdkClient.registerListeners(rangeTrigger, viewModel.habitSignalListener)
+        // 속도(CAR_SPEED)는 dangerous 권한이라 런타임 허용이 필요하다. 이미 있으면 즉시 구독,
+        // 없으면 팝업으로 요청하고 허용 콜백에서 속도 구독을 재시도한다(없으면 급가속/급정거 감지 불가).
+        ensureSpeedPermission()
         voiceGuideClient.initialize()
         voiceInputClient.initialize()
         // 2단계 대화형 경유지 추가: 추천 안내가 끝나면 마이크를 열어 응/아니요를 받는다.
@@ -165,6 +179,17 @@ class MainActivity : ComponentActivity() {
         voiceGuideClient.release()
         voiceInputClient.release()
         super.onDestroy()
+    }
+
+    /** CAR_SPEED 권한이 있으면 즉시 속도 구독을 켜고, 없으면 런타임 권한을 요청한다. */
+    private fun ensureSpeedPermission() {
+        val granted = ContextCompat.checkSelfPermission(this, VehicleSdkClient.SPEED_PERMISSION) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            vehicleSdkClient.onSpeedPermissionGranted()
+        } else {
+            speedPermissionLauncher.launch(VehicleSdkClient.SPEED_PERMISSION)
+        }
     }
 
     /** 음성 답변이 긍정(응/네/추가해줘 등)인지 판단한다. */

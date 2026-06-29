@@ -24,8 +24,10 @@ class DrivingHabitAnalyzer {
     private var lastSpeedMps: Float? = null
     private var lastSteeringDeg: Float? = null
 
+    @get:Synchronized
     val isActive: Boolean get() = active
 
+    @Synchronized
     fun startSession(nowMs: Long = System.currentTimeMillis()) {
         active = true
         sessionStartMs = nowMs
@@ -40,6 +42,7 @@ class DrivingHabitAnalyzer {
      * 속도 통지. 단위는 SDK/CarProperty와 동일한 m/s.
      * 직전 값과의 차이를 km/h로 환산해 ±[SPEED_DELTA_THRESHOLD_KMH] 이상이면 급가속/급정거로 센다.
      */
+    @Synchronized
     fun onSpeed(metersPerSec: Float) {
         if (!active) return
         val prev = lastSpeedMps
@@ -53,6 +56,7 @@ class DrivingHabitAnalyzer {
     }
 
     /** 조향각 통지(도). 직전 값과의 절대 변화가 [STEERING_DELTA_THRESHOLD_DEG] 이상이면 부주의로 센다. */
+    @Synchronized
     fun onSteeringAngle(angleDeg: Float) {
         if (!active) return
         val prev = lastSteeringDeg
@@ -62,6 +66,7 @@ class DrivingHabitAnalyzer {
     }
 
     /** 세션 종료. 활성 세션이 없으면 null을 반환한다. */
+    @Synchronized
     fun finishSession(nowMs: Long = System.currentTimeMillis()): DrivingSession? {
         if (!active) return null
         active = false

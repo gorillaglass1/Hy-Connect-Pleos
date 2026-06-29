@@ -5,7 +5,9 @@ import android.car.VehiclePropertyIds
 import android.car.hardware.CarPropertyValue
 import android.car.hardware.property.CarPropertyManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import ai.pleos.playground.vehicle.Vehicle
 import com.hyconnect.pleos.vehicle.habit.DrivingHabitSignalListener
 import com.hyconnect.pleos.vehicle.listener.GearSelectionListenerImpl
@@ -40,6 +42,9 @@ class VehicleSdkClient(context: Context) {
     private var carPropertyManager: CarPropertyManager? = null
     private var speedCallback: CarPropertyManager.CarPropertyEventCallback? = null
 
+    // CAR_SPEED 런타임 권한이 늦게 허용됐을 때 속도 구독을 다시 시도하려고 보관한다.
+    private var pendingHabitListener: DrivingHabitSignalListener? = null
+
     fun initialize() {
         runCatching {
             Log.d(LOG_TAG, "Vehicle SDK initialize")
@@ -72,9 +77,20 @@ class VehicleSdkClient(context: Context) {
         }.onFailure { Log.w(LOG_TAG, "Vehicle SDK 리스너 등록 실패 — 폴백 동작.", it) }
 
         if (habitListener != null) {
+            pendingHabitListener = habitListener
             registerSteering(habitListener)
+            // 속도는 CAR_SPEED(런타임/dangerous) 권한이 있어야 구독된다. 없으면 조용히 건너뛰고,
+            // Activity가 권한을 받은 뒤 [onSpeedPermissionGranted]로 다시 시도한다.
             registerSpeed(habitListener)
         }
+    }
+
+    /**
+     * CAR_SPEED 런타임 권한이 허용된 직후 Activity가 호출한다.
+     * onCreate 시점엔 권한이 없어 건너뛴 속도 구독을 여기서 (재)시도한다.
+     */
+    fun onSpeedPermissionGranted() {
+        pendingHabitListener?.let { registerSpeed(it) }
     }
 
     /** 조향각(Pleos SDK SteeringWheel) 구독. 실패해도 운전습관 분석만 일부 제한되고 앱은 계속 동작한다. */
@@ -86,8 +102,17 @@ class VehicleSdkClient(context: Context) {
         }.onFailure { Log.w(LOG_TAG, "조향각 구독 실패 — 부주의 감지 제한.", it) }
     }
 
-    /** 속도(Google android.car CarProperty) 구독. PERF_VEHICLE_SPEED_DISPLAY는 m/s 단위다. */
+    /**
+     * 속도(Google android.car CarProperty) 구독. PERF_VEHICLE_SPEED_DISPLAY는 m/s 단위다.
+     * CAR_SPEED는 dangerous 권한이라 미허용이면 registerCallback이 SecurityException을 던진다.
+     * 권한이 없으면 구독을 건너뛰어(급가속/급정거만 비활성) 권한 팝업 이후 재시도에 맡긴다.
+     */
     private fun registerSpeed(habitListener: DrivingHabitSignalListener) {
+        if (speedCallback != null) return // 이미 구독 중이면 중복 등록하지 않는다.
+        if (!hasSpeedPermission()) {
+            Log.d(LOG_TAG, "CAR_SPEED 권한 없음 — 속도 구독 보류(권한 허용 후 재시도).")
+            return
+        }
         runCatching {
             val createdCar = Car.createCar(appContext)
             car = createdCar
@@ -106,11 +131,12 @@ class VehicleSdkClient(context: Context) {
                 }
             }
             speedCallback = callback
-            manager.registerCallback(
+            val ok = manager.registerCallback(
                 callback,
                 VehiclePropertyIds.PERF_VEHICLE_SPEED_DISPLAY,
                 CarPropertyManager.SENSOR_RATE_ONCHANGE,
             )
+            Log.d(LOG_TAG, "속도 구독 등록 결과=$ok (PERF_VEHICLE_SPEED_DISPLAY)")
         }.onFailure { Log.w(LOG_TAG, "속도 구독 실패 — 급가속/급정거 감지 제한.", it) }
     }
 
@@ -134,7 +160,12 @@ class VehicleSdkClient(context: Context) {
         speedCallback = null
         carPropertyManager = null
         car = null
+        pendingHabitListener = null
     }
+
+    private fun hasSpeedPermission(): Boolean =
+        ContextCompat.checkSelfPermission(appContext, SPEED_PERMISSION) ==
+            PackageManager.PERMISSION_GRANTED
 
     fun release() {
         runCatching {
@@ -143,7 +174,10 @@ class VehicleSdkClient(context: Context) {
         }.onFailure { Log.w(LOG_TAG, "Vehicle SDK release 실패.", it) }
     }
 
-    private companion object {
-        const val LOG_TAG = "HyConnect.VehicleSdk"
+    companion object {
+        /** 속도(PERF_VEHICLE_SPEED_DISPLAY) 구독에 필요한 dangerous 런타임 권한. */
+        const val SPEED_PERMISSION: String = Car.PERMISSION_SPEED
+
+        private const val LOG_TAG = "HyConnect.VehicleSdk"
     }
 }
